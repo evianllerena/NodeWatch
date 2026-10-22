@@ -1,31 +1,35 @@
-# Launcher rebuild spec (recovered 2026-10-22)
+# Launcher rebuild spec (draft, 2026-10-22, NOT VERIFIED against the binaries' behaviour)
 
-The Go source of the three Windows launchers and the macOS launcher was not recovered: only the compiled
-binaries from v0.10.42 exist. Every launcher **pins the SHA-256 of `integrity.json`** (verified: the hex digest
-of each platform's manifest is embedded in `NodeWatch.exe` and `Contents/MacOS/NodeWatch`). So **no changed
-build can ship until the launchers are rebuilt**. Any edit to a listed file changes the manifest, and the old
-launcher refuses it.
+**Status:** this is a working draft. It was written without running any of the binaries (they are Windows and
+macOS programs). Every "responsibility" below is inferred from function names and from `docs/SECURITY_MODEL.md`.
+Check it against the real launchers before anyone builds from it.
 
-This spec is reconstructed from three sources:
+What is verified (by inspecting the files, 2026-10-22):
 
-- the function names left in the binaries (Go keeps them, even with `-trimpath`)
-- `docs/SECURITY_MODEL.md`, which describes every launcher check
-- `app/launcher.py` and `app/core/security.py`, the backend's side of each handshake
+- The Windows `NodeWatch.exe` that is distributed is an **installer** (Go build path `nodewatch/setup`). It embeds a
+  zip with the launcher `NodeWatch/NodeWatch.exe` plus the `_internal` files.
+- The **launcher** `NodeWatch/NodeWatch.exe` (Go build path `nodewatch/launcher`) and the macOS launcher
+  `Contents/MacOS/NodeWatch` each contain the SHA-256 of their platform's `integrity.json`. `NodeWatchApp.exe` and
+  `NodeWatchBackend.exe` do not.
+- All are Go 1.24.7 binaries built with `-trimpath` and `CGO_ENABLED=0`. No Go source for any of them is in the build.
 
-Rebuild in Go (free; the originals were Go with `CGO_ENABLED=0`, `-trimpath`). Use `-ldflags="-s -w"` this time,
-and add the manifest hash at build time with `-ldflags "-X main.manifestSHA256=<hex>"`. That makes
-"regenerate manifest, then rebuild launcher" one scripted step instead of a source edit.
+`SECURITY_MODEL.md` says the launcher checks every manifest file against the pinned manifest. A changed build
+therefore cannot pass the existing launchers until they are rebuilt, or their source is found.
 
-## Binaries and responsibilities
+How the original build injected the hash is unknown. The release scripts named in the changelogs are not in the
+build.
 
-| Binary | Recovered functions (selection) | Responsibility |
+## Binaries and function names found in them
+
+| Binary | Function names found (selection) | Role (inferred from names, not observed) |
 | --- | --- | --- |
-| `NodeWatch.exe` (Windows, about 101 functions) | `verifyRuntime`, `hashManifestFiles`, `hashFile`, `manifest`, `copyVerified`, `installFolderMessage`, `writableByOthers`, `broadPrincipal`, `principalName`, `profileInstallDir`, `probePorts`, `portStatus`, `probeBackendWithChallenge`, `launchProof`, `identityProof`, `makeNonce`, `listeningPID`, `queryProcessPath`, `startDetached`, `runHidden`, `findPython`, `pythonCandidate`, `pipEnvironment`, `readVenvHome`, `startSplash`, `bmpDimensions`, `findAppBrowser`, `openBrowser`, `systemDLLPath`, `askYesNo`, `messageBox` | Main entry point. Holds the embedded `_internal` payload (a zip inside the exe) and the pinned manifest hash |
-| `NodeWatchApp.exe` (about 66 functions) | `createWindow`, `runWindow`, `comCall`, `comHandler`, `hardenDllSearch`, `findRuntime`, `supervise`, `runChild`, `holdLockfile`, `isLoopback`, `versionAtLeast`, `regString`, `windowDpi`, `shellOpen` | Own app window (WebView2 over COM), loopback-only, DLL search hardened, supervises the backend child |
-| `NodeWatchBackend.exe` (about 9 functions) | `run`, `fail`, `utf16Ptr` | Hidden-window wrapper that starts the bundled `pythonw.exe` running `app.launcher` |
-| `NodeWatch` (macOS universal, about 72 functions) | `checkTree`, `readManifest`, `hashManifestFiles`, `safeRel`, `permissionProblem`, `isAdmin`, `accountName`, `groupName`, `installTarget`, `isNodeWatchBundle`, `backendEnv`, `osascript`, `newChallenges`, `probePorts`, `launchProof`, `identityProof` | Same role as `NodeWatch.exe` for the `.app` bundle |
+| `NodeWatch.exe` (distributed file) | `runWizard`, `extractPayload`, `install`, `createShortcuts`, `registerUninstall`, `runUninstall`, `validateInstallDir`, `checkDrive` | Installer and uninstaller |
+| `NodeWatch/NodeWatch.exe` (inside the installer) | `verifyRuntime`, `hashManifestFiles`, `hashFile`, `manifest`, `copyVerified`, `installFolderMessage`, `writableByOthers`, `broadPrincipal`, `profileInstallDir`, `probePorts`, `probeBackendWithChallenge`, `launchProof`, `identityProof`, `makeNonce`, `listeningPID`, `queryProcessPath`, `findPython`, `pipEnvironment`, `startSplash`, `findAppBrowser`, `openBrowser`, `systemDLLPath` | Launcher: verifies files, checks the install folder, starts and finds the backend, opens the window |
+| `app/bin/NodeWatchApp.exe` | `createWindow`, `runWindow`, `comCall`, `comHandler`, `hardenDllSearch`, `findRuntime`, `supervise`, `runChild`, `holdLockfile`, `isLoopback` | App window and backend supervision |
+| `runtime/NodeWatchBackend.exe` | `run`, `fail`, `utf16Ptr` | Small process starter |
+| macOS `Contents/MacOS/NodeWatch` (universal) | `checkTree`, `readManifest`, `hashManifestFiles`, `safeRel`, `permissionProblem`, `isAdmin`, `installTarget`, `isNodeWatchBundle`, `backendEnv`, `osascript`, `newChallenges`, `probePorts`, `launchProof`, `identityProof` | macOS launcher |
 
-## Behaviour to reproduce (each row maps to SECURITY_MODEL.md)
+## Behaviour to reproduce (from `docs/SECURITY_MODEL.md`, the changelogs and strings found in the binaries; not observed by running them)
 
 1. **Manifest pin.** Read `integrity.json` and compare its SHA-256 to the pinned value; refuse on mismatch.
 2. **File verification.** Hash every listed file; refuse to start on any mismatch or missing file. The bundled runtime must be listed.
@@ -41,7 +45,7 @@ and add the manifest hash at build time with `-ldflags "-X main.manifestSHA256=<
 10. **Profile migration.** Move the legacy `MistNetworkTools` profile into `NodeWatch` (with `migration-backup`). Python also does this in `app/core/config.py`; keep one owner.
 11. **UI.**
     - Show the splash `branding/startup.bmp` (parsed only after branding is verified).
-    - Open the app window: WebView2 via `NodeWatchApp.exe`, or the browser in `--app=` mode with its own `--user-data-dir` and `--no-first-run`.
+    - Open the app window: WebView2 via `NodeWatchApp.exe` (`CHANGELOG_v0.10.39.md`; its source was `tools/nwwindow`, not in the build), or the browser in `--app=` mode with its own `--user-data-dir` and `--no-first-run`.
     - `NODEWATCH_OPEN_IN_BROWSER=1` opens a normal browser instead.
 12. **macOS only.** Clear the download-quarantine xattr from the launcher's own already-verified files (`/usr/bin/xattr`). Install copies with `/usr/bin/ditto`.
 
