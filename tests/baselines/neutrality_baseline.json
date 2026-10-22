@@ -1,0 +1,10 @@
+{
+  "mist_direct_files": 21,
+  "vendor_extra_reads": 41,
+  "mist_source_branches": 7,
+  "duck_typed_connector_calls": 6,
+  "vendor_named_routes": 8,
+  "connector_ids_in_page_scripts": 7,
+  "sdk_imports_from_vendor_modules": 2,
+  "legacy_provider_modules": 6
+}
