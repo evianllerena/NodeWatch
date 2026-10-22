@@ -1,0 +1,9 @@
+# NodeWatch v0.10.39 — NodeWatch's own window
+
+- **NodeWatch opens in a window of its own on Windows.** Until now the app window was an Edge (or Chrome) app window, so Windows saw it as the browser: browser icon on the taskbar, listed under Edge in Task Manager. It is now NodeWatch's own program (`NodeWatchApp.exe`): NodeWatch icon and taskbar button, and its own "NodeWatch" entry in Task Manager's Apps list.
+- **All ours.** The window program is written in-house (`tools/nwwindow`) using only the Go standard library and the Windows API: window, message loop, and the COM plumbing that talks to WebView2. No third-party code, and nothing bundled: the page is drawn by the Microsoft Edge WebView2 Runtime that is already part of Windows 10/11, loaded from where Windows installed it. Its icon, version information and manifest are written by our own resource script (`build/winres.py`).
+- **Behaves like before.** Links to other websites open in your default browser; Quit (and `window.close()`) closes the window; starting NodeWatch again brings the open window to the front instead of opening a second one; downloads, printing and Save as PDF work as they did.
+- **Never leaves you without a window.** If WebView2 is missing or does not start within a few seconds, NodeWatch opens the Edge app window exactly as before (then Chrome, then your default browser). If the page's browser process crashes, the window reopens on its own. Details go to `app-window\nodewatch-window.log` in NodeWatch's data folder.
+- To keep the Edge app window, set the environment variable `NODEWATCH_BROWSER_WINDOW=1`.
+- Mac: unchanged (the browser app window).
+- The installer is a little smaller: Python's unused `ensurepip` (pip installer) is no longer shipped; NodeWatch's packages are bundled and never downloaded.

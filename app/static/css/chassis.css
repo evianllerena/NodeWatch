@@ -1,0 +1,218 @@
+/* NodeWatch v0.10.15 – chassis styles (loaded after ui-tools.css). Use theme tokens only. */
+
+/* ---------------------------------------------------------------- stack health overview */
+#view-virtual-chassis .vc-overview { margin: 14px 0 16px; }
+#view-virtual-chassis .vc-panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; font-size: 12.5px; }
+#view-virtual-chassis .vc-panel-head h4 { margin-bottom: 6px; }
+#view-virtual-chassis .vc-health table code { white-space: nowrap; }
+#view-virtual-chassis .vc-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+#view-virtual-chassis .vc-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  flex: 1 1 auto;
+  min-width: 84px;
+  max-width: 170px;
+}
+#view-virtual-chassis .vc-tile b { font-size: 20px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+#view-virtual-chassis .vc-tile span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+#view-virtual-chassis .vc-tile.quiet b { color: var(--muted); }
+#view-virtual-chassis .vc-tile.tone-critical { border-color: var(--nw-red-80, #fda29b); background: var(--red); }
+#view-virtual-chassis .vc-tile.tone-critical b { color: var(--red-ink); }
+#view-virtual-chassis .vc-tile.tone-warning { border-color: var(--nw-amber-77, #fec84b); background: var(--yellow); }
+#view-virtual-chassis .vc-tile.tone-warning b { color: var(--yellow-ink); }
+#view-virtual-chassis .vc-tile.tone-ok b { color: var(--green-ink); }
+#view-virtual-chassis .vc-tile.tone-info b { color: var(--blue); }
+#view-virtual-chassis .vc-tile:hover { border-color: var(--blue); }
+#view-virtual-chassis .vc-tile.active { outline: 2px solid var(--blue); outline-offset: 1px; }
+#view-virtual-chassis .vc-tile:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+#view-virtual-chassis .vc-warn { margin: 0 0 8px; }
+
+#view-virtual-chassis .vc-rank-wrap { max-height: 560px; overflow: auto; }
+#view-virtual-chassis .vc-rank td:nth-child(5) { white-space: nowrap; }
+#view-virtual-chassis .vc-rank-row { cursor: pointer; }
+#view-virtual-chassis .vc-rank-row:hover td,
+#view-virtual-chassis .vc-rank-row:focus-visible td { background: var(--panel-2); }
+#view-virtual-chassis .vc-rank-row:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+#view-virtual-chassis .vc-rank-row.sev-critical td:first-child { box-shadow: inset 3px 0 0 var(--nw-red-49, #f04438); }
+#view-virtual-chassis .vc-rank-row.sev-warning td:first-child { box-shadow: inset 3px 0 0 var(--nw-amber-56, #f79009); }
+#view-virtual-chassis .vc-issue-cell { min-width: 260px; max-width: 420px; }
+#view-virtual-chassis .vc-issue { font-size: 12.5px; line-height: 1.35; padding-left: 10px; position: relative; }
+#view-virtual-chassis .vc-issue::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.5em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+#view-virtual-chassis .vc-issue.critical::before { background: var(--nw-red-49, #f04438); }
+#view-virtual-chassis .vc-issue.warning::before { background: var(--nw-amber-56, #f79009); }
+#view-virtual-chassis .vc-flag {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: var(--yellow);
+  color: var(--yellow-ink);
+}
+
+/* severity pill */
+#view-virtual-chassis .vc-sev {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+#view-virtual-chassis .vc-sev.critical { background: var(--red); color: var(--red-ink); border-color: var(--nw-red-80, #fda29b); }
+#view-virtual-chassis .vc-sev.warning { background: var(--yellow); color: var(--yellow-ink); border-color: var(--nw-amber-77, #fec84b); }
+#view-virtual-chassis .vc-sev.info { background: var(--panel-2); color: var(--blue); border-color: var(--line); }
+#view-virtual-chassis .vc-sev.ok { background: var(--green); color: var(--green-ink); border-color: var(--nw-green-80, #a6f4c5); }
+
+/* discovery cards */
+#view-virtual-chassis .vc-card-health { display: flex; align-items: flex-start; gap: 6px; min-height: 22px; font-size: 12.5px; }
+#view-virtual-chassis .vc-card-health:empty { display: none; }
+#view-virtual-chassis .vc-card-issue { color: var(--muted); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* ---------------------------------------------------------------- stack detail */
+#view-virtual-chassis .vc-health { margin: 16px 0; }
+#view-virtual-chassis .vc-health .editor-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+#view-virtual-chassis .vc-chip-good { color: var(--green-ink); }
+#view-virtual-chassis .vc-chip-bad { color: var(--red-ink); }
+#view-virtual-chassis .vc-chip-warn { color: var(--yellow-ink); }
+#view-virtual-chassis #vcHealthMeta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+#view-virtual-chassis .vc-health-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+@media (max-width: 1100px) {
+  #view-virtual-chassis .vc-health-grid { grid-template-columns: minmax(0, 1fr); }
+}
+#view-virtual-chassis .vc-panel {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  background: var(--card);
+  min-width: 0;
+}
+#view-virtual-chassis .vc-panel h4 { margin: 0 0 10px; font-size: 13.5px; }
+#view-virtual-chassis .vc-panel h4 + .vc-verdicts { margin-bottom: 14px; }
+
+#view-virtual-chassis .vc-verdicts { display: grid; gap: 8px; }
+#view-virtual-chassis .vc-verdict {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+}
+#view-virtual-chassis .vc-verdict p { margin: 2px 0 0; font-size: 13px; line-height: 1.4; color: var(--ink); }
+#view-virtual-chassis .vc-verdict strong { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+#view-virtual-chassis .vc-verdict-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  background: var(--panel-2);
+  color: var(--blue);
+  border: 1px solid var(--line);
+}
+#view-virtual-chassis .vc-verdict.ok .vc-verdict-icon { background: var(--green); color: var(--green-ink); }
+#view-virtual-chassis .vc-verdict.warning { border-color: var(--nw-amber-77, #fec84b); }
+#view-virtual-chassis .vc-verdict.warning .vc-verdict-icon { background: var(--yellow); color: var(--yellow-ink); }
+#view-virtual-chassis .vc-verdict.critical { border-color: var(--nw-red-80, #fda29b); }
+#view-virtual-chassis .vc-verdict.critical .vc-verdict-icon { background: var(--red); color: var(--red-ink); }
+
+#view-virtual-chassis .vc-issue-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+#view-virtual-chassis .vc-issue-list li { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 8px; align-items: baseline; font-size: 13px; }
+
+/* topology diagram */
+#view-virtual-chassis .vc-topo-wrap { overflow-x: auto; padding: 4px 0; }
+#view-virtual-chassis .vc-topo { display: block; max-width: none; }
+#view-virtual-chassis .vc-node rect { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.5; }
+#view-virtual-chassis .vc-node.master rect { stroke: var(--blue); stroke-width: 2.5; }
+#view-virtual-chassis .vc-node.backup rect { stroke: var(--blue); stroke-width: 1.5; stroke-dasharray: 6 3; }
+#view-virtual-chassis .vc-node.missing rect { fill: var(--red); stroke: var(--nw-red-49, #f04438); stroke-dasharray: 4 3; }
+#view-virtual-chassis .vc-node text { fill: var(--ink); font-size: 12px; }
+#view-virtual-chassis .vc-node .t1 { font-weight: 700; font-size: 13px; }
+#view-virtual-chassis .vc-node .t2 { fill: var(--blue); font-weight: 600; }
+#view-virtual-chassis .vc-node .t3 { fill: var(--muted); font-size: 11px; }
+#view-virtual-chassis .vc-node.missing .t3 { fill: var(--red-ink); }
+#view-virtual-chassis .vc-link path { fill: none; stroke-width: 3; stroke-linecap: round; }
+#view-virtual-chassis .vc-link.up path { stroke: var(--nw-green-39, #12b76a); }
+#view-virtual-chassis .vc-link.down path { stroke: var(--nw-red-49, #f04438); stroke-dasharray: 6 5; }
+#view-virtual-chassis .vc-link.down path.x { stroke-dasharray: none; stroke-width: 2.5; }
+#view-virtual-chassis .vc-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+#view-virtual-chassis .vc-legend span { display: inline-flex; align-items: center; gap: 6px; }
+#view-virtual-chassis .vc-legend .lg { display: inline-block; width: 18px; height: 10px; border-radius: 3px; }
+#view-virtual-chassis .vc-legend .lg.up { height: 3px; background: var(--nw-green-39, #12b76a); }
+#view-virtual-chassis .vc-legend .lg.down { height: 0; border-top: 3px dashed var(--nw-red-49, #f04438); }
+#view-virtual-chassis .vc-legend .lg.master { border: 2.5px solid var(--blue); }
+#view-virtual-chassis .vc-legend .lg.backup { border: 1.5px dashed var(--blue); }
+#view-virtual-chassis .vc-legend .lg.missing { background: var(--red); border: 1.5px dashed var(--nw-red-49, #f04438); }
+
+/* member table */
+#view-virtual-chassis .vc-member-table td { white-space: nowrap; }
+#view-virtual-chassis .vc-row-missing td { background: var(--red); }
+#view-virtual-chassis .vc-role { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 12px; border: 1px solid var(--line); }
+#view-virtual-chassis .vc-role.master { border-color: var(--blue); color: var(--blue); font-weight: 600; }
+#view-virtual-chassis .vc-role.backup { border-style: dashed; border-color: var(--blue); color: var(--blue); }
+
+/* environment */
+#view-virtual-chassis .vc-env-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+#view-virtual-chassis .vc-env { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel-2); min-width: 0; }
+#view-virtual-chassis .vc-env.missing { border-color: var(--nw-red-80, #fda29b); }
+#view-virtual-chassis .vc-env-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: 13px; }
+#view-virtual-chassis .vc-env-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 5px; font-size: 12px; }
+#view-virtual-chassis .vc-env-row .lbl { width: 46px; color: var(--muted); flex: none; }
+#view-virtual-chassis .vc-hw { display: inline-block; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+#view-virtual-chassis .vc-hw.ok { border-color: var(--nw-green-80, #a6f4c5); color: var(--green-ink); background: var(--green); }
+#view-virtual-chassis .vc-hw.bad { border-color: var(--nw-red-80, #fda29b); color: var(--red-ink); background: var(--red); font-weight: 600; }
+#view-virtual-chassis .vc-hw.absent { color: var(--muted); border-style: dashed; }
+#view-virtual-chassis .vc-bar { display: inline-block; width: 110px; height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+#view-virtual-chassis .vc-bar i { display: block; height: 100%; width: var(--pct, 0%); background: var(--blue); border-radius: inherit; }
+
+/* VC ports + timeline */
+#view-virtual-chassis .vc-link-state { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+#view-virtual-chassis .vc-link-state.up { background: var(--green); color: var(--green-ink); }
+#view-virtual-chassis .vc-link-state.down { background: var(--red); color: var(--red-ink); }
+#view-virtual-chassis .vc-timeline { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow: auto; }
+#view-virtual-chassis .vc-timeline li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+#view-virtual-chassis .vc-timeline li:last-child { border-bottom: 0; }
+#view-virtual-chassis .vc-timeline .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; background: var(--muted); }
+#view-virtual-chassis .vc-timeline .kind-vc .dot { background: var(--blue); }
+#view-virtual-chassis .vc-timeline .kind-reboot .dot { background: var(--nw-amber-56, #f79009); }
+#view-virtual-chassis .vc-timeline .kind-environment .dot { background: var(--nw-red-49, #f04438); }
+#view-virtual-chassis .vc-timeline .kind-config .dot { background: var(--nw-violet-52, #7a5af8); }
+#view-virtual-chassis .vc-ev-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+#view-virtual-chassis .vc-timeline p { margin: 3px 0 0; font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+#view-virtual-chassis .vc-health table th,
+#view-virtual-chassis .vc-health table td { padding-left: 8px; padding-right: 8px; }
+#view-virtual-chassis .vc-health .table-wrap { overflow-x: auto; }

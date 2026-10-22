@@ -1,0 +1,1001 @@
+/* NodeWatch v0.10.18 – Settings › Connections: Connected / Available lists and the Add-connection
+   wizard (the wizard layer lives on <body>). Theme tokens only, so day and night both work. */
+
+.settings-layout > .conn-card {
+  grid-column: 1 / -1;
+}
+.conn-intro {
+  max-width: 980px;
+  margin: 8px 0 14px;
+}
+.conn-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ---- "Data available now" strip ---------------------------------------------------------- */
+.conn-capstrip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: calc(10px * var(--nw-radius, 1));
+  background: var(--panel-2);
+  margin-bottom: 18px;
+}
+.conn-capstrip:empty {
+  display: none;
+}
+.conn-capstrip-label {
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 6px;
+}
+.conn-cap {
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.conn-cap.is-on {
+  color: var(--nw-green-26, #087e4d);
+  background: var(--nw-green-96, #ecfdf3);
+  border-color: transparent;
+  font-weight: 700;
+}
+.conn-cap.is-off {
+  color: var(--muted);
+  border-style: dashed;
+}
+
+/* ---- sections ----------------------------------------------------------------------------- */
+.conn-groups {
+  display: grid;
+  gap: 22px;
+}
+.conn-section {
+  min-width: 0;
+}
+.conn-group-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.conn-count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  letter-spacing: 0;
+  text-align: center;
+  color: var(--ink);
+  background: var(--card);
+}
+.conn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.conn-empty {
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: calc(12px * var(--nw-radius, 1));
+  color: var(--muted);
+  background: var(--panel-2);
+}
+
+/* Available: collapsed catalog so unused products do not clutter the page. */
+
+.conn-avail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.conn-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: calc(10px * var(--nw-radius, 1));
+  background: var(--card);
+}
+.conn-tile-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.conn-tile h5 {
+  margin: 2px 0 0;
+  font-size: calc(var(--fs-md) * var(--nw-tse, 1));
+  color: var(--ink);
+}
+.conn-tile-desc {
+  margin: 0;
+  color: var(--muted);
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+  line-height: 1.4;
+  flex: 1;
+}
+.conn-tile-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+}
+
+/* ---- connected cards ----------------------------------------------------------------------- */
+.conn-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 16px 14px;
+  border: 1px solid var(--line);
+  border-radius: calc(12px * var(--nw-radius, 1));
+  background: var(--panel-2);
+}
+.conn-item::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--line);
+}
+.conn-item.is-ok::before {
+  background: var(--nw-green-26, #087e4d);
+}
+.conn-item.is-ready::before {
+  background: var(--nw-blue-51, #2e6bd8);
+}
+.conn-item.is-bad::before {
+  background: var(--nw-red-42, #a72e2e);
+}
+.conn-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.conn-title {
+  min-width: 0;
+}
+.conn-title h4 {
+  margin: 2px 0 0;
+  color: var(--ink);
+}
+.conn-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.conn-badge {
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.conn-preview {
+  color: var(--nw-amber-27, #8a4b00);
+  background: var(--nw-amber-96, #fffaeb);
+  border-color: var(--nw-amber-77, #fedf89);
+}
+.conn-stable {
+  color: var(--nw-indigo-51, #3538cd);
+  background: var(--nw-indigo-98, #f4f6ff);
+  border-color: var(--nw-indigo-91, #e0e7ff);
+}
+.conn-state.is-ok {
+  color: var(--nw-green-26, #087e4d);
+  background: var(--nw-green-96, #ecfdf3);
+}
+.conn-state.is-ready {
+  color: var(--nw-blue-32, #1d4ed8);
+  background: var(--nw-blue-97, #eff6ff);
+}
+.conn-state.is-bad {
+  color: var(--nw-red-42, #a72e2e);
+  background: var(--nw-red-97, #fef3f2);
+}
+.conn-state.is-off {
+  color: var(--muted);
+  border-color: var(--line);
+}
+.conn-desc {
+  margin: 0;
+  color: var(--muted);
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+  line-height: 1.45;
+}
+.conn-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.conn-chip {
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: var(--nw-indigo-51, #3538cd);
+  background: var(--nw-indigo-98, #f4f6ff);
+  border: 1px solid var(--nw-indigo-91, #e0e7ff);
+}
+.conn-error,
+.conn-result.conn-error {
+  margin: 0;
+  color: var(--nw-red-42, #a72e2e);
+  background: var(--nw-red-97, #fef3f2);
+  overflow-wrap: anywhere;
+}
+.conn-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.conn-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
+.conn-where {
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+}
+.conn-docs {
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  color: var(--blue);
+  text-decoration: none;
+}
+.conn-docs:hover {
+  text-decoration: underline;
+}
+
+/* On/off switch (a real checkbox, styled) */
+.conn-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+  font-weight: 700;
+  color: var(--ink);
+}
+.conn-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.conn-switch-track {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--line);
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+.conn-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(var(--nw-shadow-rgb, 15, 23, 42), 0.3);
+  transition: transform 0.15s ease;
+}
+.conn-switch input:checked + .conn-switch-track {
+  background: var(--nw-green-26, #087e4d);
+}
+.conn-switch input:checked + .conn-switch-track::after {
+  transform: translateX(14px);
+}
+.conn-switch input:focus-visible + .conn-switch-track {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* ---- connection form fields (used in the wizard) ------------------------------------------- */
+.conn-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 14px;
+  margin: 12px 0;
+}
+.conn-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+  font-weight: 700;
+  color: var(--muted);
+}
+.conn-fields > .conn-field:first-child,
+.conn-wide {
+  grid-column: 1 / -1;
+}
+.conn-field input[type='text'],
+.conn-field input[type='url'],
+.conn-field input[type='password'],
+.conn-field input[type='number'],
+.conn-field select {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  border-radius: calc(8px * var(--nw-radius, 1));
+  padding: 9px 11px;
+  font: inherit;
+  font-weight: 500;
+}
+.conn-field input:focus-visible,
+.conn-field select:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+.conn-field input[aria-invalid='true'] {
+  border-color: var(--nw-red-42, #a72e2e);
+}
+.conn-help {
+  font-weight: 500;
+  color: var(--muted);
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  line-height: 1.4;
+}
+.conn-invalid {
+  font-weight: 700;
+  color: var(--nw-red-42, #a72e2e);
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+}
+.conn-invalid.hidden {
+  display: none;
+}
+.conn-saved {
+  font-weight: 600;
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  color: var(--nw-green-26, #087e4d);
+}
+.conn-req {
+  color: var(--nw-red-42, #a72e2e);
+}
+.conn-form .notice {
+  margin: 8px 0;
+}
+
+/* ---- wizard (on <body>) ---------------------------------------------------------------------- */
+.connwiz-layer.hidden {
+  display: none;
+}
+body.connwiz-open {
+  overflow: hidden;
+}
+.connwiz-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  background: rgba(var(--nw-shadow-rgb, 15, 23, 42), 0.36);
+}
+.connwiz {
+  position: fixed;
+  z-index: 951;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(980px, calc(100vw - 32px));
+  height: min(760px, calc(100vh - 48px));
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: calc(16px * var(--nw-radius, 1));
+  box-shadow: 0 24px 64px rgba(var(--nw-shadow-rgb, 15, 23, 42), 0.32);
+  outline: none;
+  overflow: hidden;
+  animation: connwiz-in 0.16s ease-out;
+}
+@keyframes connwiz-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 12px));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+.connwiz-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 22px 8px;
+}
+.connwiz-head h3 {
+  margin: 4px 0 0;
+  font-size: calc(20px * var(--nw-tse, 1));
+}
+.connwiz-x {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.connwiz-x:hover {
+  color: var(--ink);
+  background: var(--panel-2);
+}
+.connwiz-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* stepper */
+.connwiz-steps {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 6px 22px 14px;
+  list-style: none;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+.connwiz-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+  font-weight: 700;
+  white-space: nowrap;
+}
+.connwiz-steps li + li::before {
+  content: '';
+  width: 16px;
+  height: 1px;
+  background: var(--line);
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+.connwiz-num {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  flex-shrink: 0;
+}
+.connwiz-steps li.is-current {
+  color: var(--ink);
+}
+.connwiz-steps li.is-current .connwiz-num {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: var(--nw-on-accent, #fff);
+}
+.connwiz-steps li.is-done .connwiz-num {
+  background: var(--nw-green-96, #ecfdf3);
+  border-color: transparent;
+  color: var(--nw-green-26, #087e4d);
+}
+.connwiz-steps li.is-skipped {
+  opacity: 0.45;
+}
+
+.connwiz-body {
+  overflow-y: auto;
+  padding: 18px 22px 22px;
+  min-height: 0;
+}
+.connwiz-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-top: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.connwiz-spacer {
+  flex: 1;
+}
+.connwiz-foot [aria-disabled='true'] {
+  opacity: 0.55;
+}
+.connwiz-lead {
+  margin: 0 0 14px;
+  font-size: calc(var(--fs-md) * var(--nw-tse, 1));
+  line-height: 1.5;
+}
+.connwiz-h {
+  margin: 0 0 8px;
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.connwiz-meta {
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  margin: 10px 0 0;
+}
+
+/* step 1: catalog */
+.connwiz-search input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: calc(10px * var(--nw-radius, 1));
+  padding: 11px 14px;
+  font: inherit;
+  margin-bottom: 16px;
+}
+.connwiz-search input:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+.connwiz-cat + .connwiz-cat {
+  margin-top: 16px;
+}
+.connwiz-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+.connwiz-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: calc(10px * var(--nw-radius, 1));
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.connwiz-card:hover,
+.connwiz-card:focus-visible {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(var(--nw-shadow-rgb, 15, 23, 42), 0.06);
+  outline: none;
+}
+.connwiz-card.is-connected {
+  background: var(--panel-2);
+}
+.connwiz-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.connwiz-card-top strong {
+  display: block;
+  margin-top: 2px;
+  font-size: calc(var(--fs-md) * var(--nw-tse, 1));
+}
+.connwiz-card-desc {
+  color: var(--muted);
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+  line-height: 1.4;
+}
+.connwiz-card-meta {
+  color: var(--muted);
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+}
+
+/* step 2: before you start */
+.connwiz-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+.connwiz-list {
+  margin: 0 0 18px;
+  padding-left: 18px;
+  line-height: 1.5;
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+}
+.connwiz-howto {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: howto;
+  display: grid;
+  gap: 12px;
+}
+.connwiz-howto > li {
+  counter-increment: howto;
+  position: relative;
+  padding: 10px 12px 10px 44px;
+  border: 1px solid var(--line);
+  border-radius: calc(10px * var(--nw-radius, 1));
+  background: var(--panel-2);
+}
+.connwiz-howto > li::before {
+  content: counter(howto);
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: var(--nw-on-accent, #fff);
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  font-weight: 800;
+}
+.connwiz-howto p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+  line-height: 1.45;
+}
+.connwiz-howto .conn-docs {
+  display: inline-block;
+  margin-top: 6px;
+}
+.connwiz-copy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.connwiz-copy code {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  overflow-wrap: anywhere;
+}
+.connwiz-aside {
+  display: grid;
+  gap: 12px;
+}
+.connwiz-box {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: calc(10px * var(--nw-radius, 1));
+  background: var(--panel-2);
+}
+.connwiz-box p {
+  margin: 0;
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+  line-height: 1.45;
+}
+.connwiz-box.is-key {
+  border-color: var(--nw-green-80, #abefc6);
+  background: var(--nw-green-96, #ecfdf3);
+}
+.connwiz-box.is-key .connwiz-h {
+  color: var(--nw-green-26, #087e4d);
+}
+.connwiz-box.is-unsure {
+  border-color: var(--nw-amber-77, #fedf89);
+  background: var(--nw-amber-96, #fffaeb);
+}
+.connwiz-box.is-unsure .connwiz-h {
+  color: var(--nw-amber-27, #8a4b00);
+}
+.connwiz-box .connwiz-list {
+  margin: 0;
+}
+
+/* step 3: form */
+.connwiz-form {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.connwiz-secret {
+  display: flex;
+  gap: 6px;
+}
+.connwiz-secret input {
+  flex: 1;
+}
+
+/* step 4: test */
+.connwiz-testing {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 26px 4px;
+}
+.connwiz-testing p {
+  margin: 2px 0 0;
+}
+.connwiz-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  border-top-color: var(--blue);
+  animation: connwiz-spin 0.8s linear infinite;
+}
+@keyframes connwiz-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.connwiz-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 12px 14px;
+  border-radius: calc(10px * var(--nw-radius, 1));
+  margin-bottom: 14px;
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+}
+.connwiz-verdict strong {
+  font-size: calc(var(--fs-md) * var(--nw-tse, 1));
+}
+.connwiz-verdict.is-ok {
+  color: var(--nw-green-26, #087e4d);
+  background: var(--nw-green-96, #ecfdf3);
+}
+.connwiz-verdict.is-bad {
+  color: var(--nw-red-42, #a72e2e);
+  background: var(--nw-red-97, #fef3f2);
+}
+.connwiz-checks {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: calc(10px * var(--nw-radius, 1));
+  overflow: hidden;
+}
+.connwiz-checks li {
+  display: grid;
+  grid-template-columns: 26px 190px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+}
+.connwiz-checks li + li {
+  border-top: 1px solid var(--line);
+}
+.connwiz-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-weight: 900;
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+.connwiz-checks .is-pass .connwiz-icon {
+  color: var(--nw-green-26, #087e4d);
+  background: var(--nw-green-96, #ecfdf3);
+  border-color: transparent;
+}
+.connwiz-checks .is-fail .connwiz-icon {
+  color: var(--nw-red-42, #a72e2e);
+  background: var(--nw-red-97, #fef3f2);
+  border-color: transparent;
+}
+.connwiz-checks .is-warn .connwiz-icon {
+  color: var(--nw-amber-27, #8a4b00);
+  background: var(--nw-amber-96, #fffaeb);
+  border-color: transparent;
+}
+.connwiz-check-label {
+  font-weight: 800;
+}
+.connwiz-check-detail {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.connwiz-checks .is-skip {
+  opacity: 0.7;
+}
+table.connwiz-caps {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+}
+.connwiz-caps th {
+  text-align: left;
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.connwiz-caps td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.connwiz-caps td:first-child {
+  width: 190px;
+}
+.connwiz-caps td:nth-child(2) {
+  width: 200px;
+}
+.connwiz-pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  font-weight: 800;
+  white-space: nowrap;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.connwiz-pill.is-ok {
+  color: var(--nw-green-26, #087e4d);
+  background: var(--nw-green-96, #ecfdf3);
+  border-color: transparent;
+}
+.connwiz-pill.is-partial,
+.connwiz-pill.is-empty,
+.connwiz-pill.is-unsupported {
+  color: var(--nw-amber-27, #8a4b00);
+  background: var(--nw-amber-96, #fffaeb);
+  border-color: transparent;
+}
+.connwiz-pill.is-denied,
+.connwiz-pill.is-error,
+.connwiz-pill.is-timeout {
+  color: var(--nw-red-42, #a72e2e);
+  background: var(--nw-red-97, #fef3f2);
+  border-color: transparent;
+}
+.connwiz-needs {
+  margin-top: 4px;
+  color: var(--nw-amber-27, #8a4b00);
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+  font-weight: 700;
+}
+.connwiz-probes {
+  margin-top: 4px;
+  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
+}
+.connwiz-probes summary {
+  cursor: pointer;
+  color: var(--blue);
+}
+.connwiz-probes ul {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+.connwiz-probes li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  color: var(--muted);
+}
+.connwiz-probes li.is-denied,
+.connwiz-probes li.is-error,
+.connwiz-probes li.is-timeout {
+  color: var(--nw-red-42, #a72e2e);
+}
+.connwiz-unlock {
+  margin-bottom: 14px;
+}
+.connwiz-trouble summary {
+  cursor: pointer;
+  font-weight: 800;
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+}
+.connwiz-trouble ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+  line-height: 1.5;
+  color: var(--muted);
+}
+.connwiz-trouble strong {
+  color: var(--ink);
+}
+
+/* step 5: done */
+.connwiz-enable {
+  margin: 0 0 18px;
+}
+.connwiz-where {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.connwiz-where li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
+}
+
+@media (max-width: 760px) {
+  .conn-grid {
+    grid-template-columns: 1fr;
+  }
+  .conn-fields,
+  .connwiz-split {
+    grid-template-columns: 1fr;
+  }
+  .connwiz-checks li {
+    grid-template-columns: 26px minmax(0, 1fr);
+  }
+  .connwiz-check-detail {
+    grid-column: 2;
+  }
+  .connwiz-steps li > span:last-child {
+    display: none;
+  }
+}

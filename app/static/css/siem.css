@@ -1,0 +1,25 @@
+/* NodeWatch v0.10.15 – Event Relay connection diagnosis. Theme tokens only. */
+#view-siem .siem-diag { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: calc(10px * var(--nw-radius, 1)); background: var(--panel-2); display: flex; flex-direction: column; gap: 10px; }
+#view-siem .siem-diag-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; }
+#view-siem .siem-diag-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+#view-siem .siem-diag-steps li { display: grid; grid-template-columns: 22px 170px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; color: var(--ink); overflow-wrap: anywhere; }
+#view-siem .siem-diag-icon { display: inline-flex; width: 20px; height: 20px; border-radius: 50%; align-items: center; justify-content: center; font-weight: 700; font-size: var(--fs-xs, 12.5px); }
+#view-siem .siem-diag-steps li.ok .siem-diag-icon { background: var(--green); color: var(--green-ink); }
+#view-siem .siem-diag-steps li.bad .siem-diag-icon { background: var(--red, #fde8e8); color: var(--red-ink); }
+#view-siem .siem-diag-steps li.warn .siem-diag-icon { background: var(--panel-2); color: var(--nw-orange-37, #b54708); border: 1px solid currentColor; }
+#view-siem .siem-diag-steps li.bad b { color: var(--red-ink); }
+#view-siem .siem-diag-advice ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+@media (max-width: 760px) { #view-siem .siem-diag-steps li { grid-template-columns: 22px minmax(0, 1fr); } #view-siem .siem-diag-steps li span:not(.siem-diag-icon), #view-siem .siem-diag-steps li small { grid-column: 2; } }
+
+/* v0.10.24: "Where the problem is" verdict (top of the diagnose panel). */
+#view-siem .siem-verdict { border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: calc(10px * var(--nw-radius, 1)); background: var(--card); padding: 10px 14px; display: grid; gap: 6px; }
+#view-siem .siem-verdict p { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+#view-siem .siem-verdict-top { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+#view-siem .siem-verdict-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+#view-siem .siem-verdict-top strong { font-size: 16px; color: var(--ink); }
+#view-siem .siem-verdict-network { border-left-color: var(--red-ink); }
+#view-siem .siem-verdict-network .siem-verdict-top strong { color: var(--red-ink); }
+#view-siem .siem-verdict-splunk { border-left-color: var(--nw-orange-37, #b54708); }
+#view-siem .siem-verdict-splunk .siem-verdict-top strong { color: var(--nw-orange-37, #b54708); }
+#view-siem .siem-verdict-ips { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: 12.5px; }
+#view-siem .siem-verdict-ips code { font-family: var(--nw-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); color: var(--ink); user-select: all; }

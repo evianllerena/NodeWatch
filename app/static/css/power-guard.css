@@ -1,0 +1,145 @@
+/* NodeWatch v0.10.15 – power-guard styles (loaded after ui-tools.css). Use theme tokens only.
+   Org / site PoE risk overview (#poeOverview) shown when no switch is selected, and the
+   refresh status moved into the toolbar so it serves both overview and switch mode. */
+
+/* ---- toolbar: refresh status sits at the right of the site / switch pickers ---- */
+#view-poe .pg-toolbar { align-items: end; flex-wrap: wrap; }
+#view-poe .pg-toolbar .poe-refresh-meta { margin-left: auto; align-self: center; padding: 0; }
+#view-poe .pg-toolbar .field.grow { max-width: 420px; }
+#view-poe .poe-layout { margin-top: 18px; }
+#view-poe .poe-capacity-card .pg-back { font-size: 12px; font-weight: 600; padding: 2px; align-self: center; }
+
+/* ---- overview card ---- */
+#view-poe .pg-overview { margin-top: 18px; }
+#view-poe .pg-help { margin: 4px 0 0; font-size: 12px; }
+#view-poe #pgWarnings:not(:empty) { display: grid; gap: 8px; margin-top: 12px; }
+
+/* Count tiles */
+#view-poe .pg-tiles { display: grid; grid-template-columns: minmax(230px, 1.35fr) repeat(4, minmax(0, 1fr)); gap: 10px; margin: 16px 0 18px; }
+@media (max-width: 980px) { #view-poe .pg-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } #view-poe .pg-tile-total { grid-column: 1 / -1; } }
+#view-poe .pg-tiles > .notice { grid-column: 1 / -1; }
+#view-poe .pg-tile {
+  position: relative; display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left;
+  padding: 10px 12px 10px 14px; border: 1px solid var(--line); border-radius: calc(10px * var(--nw-radius, 1));
+  background: var(--panel-2); color: var(--ink); font: inherit; overflow: hidden;
+}
+#view-poe .pg-tile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line); }
+#view-poe .pg-tile.sev-crit::before { background: var(--red-ink); }
+#view-poe .pg-tile.sev-warn::before { background: var(--nw-orange-37, #b54708); }
+#view-poe .pg-tile.sev-ok::before { background: var(--green-ink); }
+#view-poe .pg-tile.is-zero::before { background: var(--line); }
+#view-poe .pg-tile-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#view-poe .pg-tile strong { font-size: 22px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+#view-poe .pg-tile.sev-crit strong { color: var(--red-ink); }
+#view-poe .pg-tile.sev-warn strong { color: var(--nw-orange-37, #b54708); }
+#view-poe .pg-tile.is-zero strong { color: var(--muted); }
+#view-poe .pg-tile small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#view-poe .pg-tile-total { grid-row: span 2; justify-content: center; padding: 14px 16px 14px 18px; }
+#view-poe .pg-tile-total strong { font-size: 30px; }
+#view-poe .pg-tile-total strong { color: var(--ink); }
+#view-poe .pg-tile-total .pg-bar { flex: none; height: 8px; margin-top: 10px; width: 100%; }
+#view-poe .pg-tile-btn { cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+#view-poe .pg-tile-btn:hover { border-color: var(--blue); }
+#view-poe .pg-tile-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+#view-poe .pg-tile-btn.is-active { border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); background: var(--card); }
+
+/* Body: ranked tables left, issue feed + top ports right */
+#view-poe .pg-body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 1180px) { #view-poe .pg-body { grid-template-columns: minmax(0, 1fr); } }
+#view-poe .pg-main, #view-poe .pg-side { display: grid; gap: 18px; min-width: 0; }
+#view-poe .pg-block { min-width: 0; }
+#view-poe .pg-block-head { display: flex; align-items: baseline; gap: 6px 10px; flex-wrap: wrap; margin-bottom: 8px; }
+#view-poe .pg-block-head h4 { margin: 0; font-size: 14px; color: var(--ink); }
+#view-poe .pg-block-head small { font-size: 12px; }
+#view-poe .pg-clear { font-size: 12px; font-weight: 600; padding: 0 2px; }
+#view-poe .pg-more { display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 600; padding: 0 2px; }
+
+/* Ranked tables */
+#view-poe .pg-table-wrap { max-height: min(62vh, 640px); }
+#view-poe .pg-table { width: 100%; table-layout: fixed; }
+#view-poe .pg-table thead th { position: sticky; top: 0; z-index: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#view-poe .pg-table th, #view-poe .pg-table td { padding: 8px 9px; vertical-align: middle; }
+#view-poe .pg-table td.pg-num { font-size: 13px; }
+#view-poe .pg-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#view-poe .pg-col-site { width: 19%; }
+#view-poe .pg-col-worst { width: 20%; }
+#view-poe .pg-sites-table .pg-col-num { width: 11%; }
+#view-poe .pg-sites-table .pg-col-draw { width: 19%; }
+#view-poe .pg-switch-table .pg-col-switch { width: 21%; }
+#view-poe .pg-switch-table .pg-col-site2 { width: 12%; }
+#view-poe .pg-switch-table .pg-col-util { width: 17%; }
+#view-poe .pg-switch-table .pg-col-draw { width: 19%; }
+#view-poe .pg-switch-table .pg-col-num { width: 9%; }
+#view-poe .pg-switch-table.pg-no-site .pg-site-col { display: none; }
+#view-poe .pg-row { cursor: pointer; }
+#view-poe .pg-row:hover td { background: rgba(49, 87, 213, 0.07); }
+#view-poe .pg-row:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+#view-poe .pg-name-cell { display: table-cell; }
+#view-poe .pg-name-cell .pg-sev-dot { margin-right: 8px; vertical-align: middle; }
+#view-poe .pg-name { display: inline-flex; flex-direction: column; min-width: 0; max-width: calc(100% - 18px); vertical-align: middle; }
+#view-poe .pg-name strong, #view-poe .pg-name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#view-poe .pg-name small, #view-poe .pg-sub { font-size: 11px; }
+#view-poe .pg-sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+#view-poe .pg-num { font-variant-numeric: tabular-nums; }
+#view-poe .pg-num small { font-size: 11px; }
+#view-poe .pg-table td.pg-chips { white-space: normal; text-overflow: clip; }
+#view-poe .pg-chip {
+  display: inline-block; margin: 1px 4px 1px 0; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  line-height: 18px; white-space: nowrap; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; box-sizing: border-box;
+}
+#view-poe .pg-chip.sev-crit { background: var(--red); color: var(--red-ink); border-color: transparent; }
+#view-poe .pg-chip.sev-warn { background: var(--yellow); color: var(--yellow-ink); border-color: transparent; }
+#view-poe .pg-chip.sev-ok { background: var(--green); color: var(--green-ink); border-color: transparent; }
+
+/* Severity dot */
+#view-poe .pg-sev-dot { display: inline-block; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--green-ink); }
+#view-poe .pg-sev-dot.sev-crit { background: var(--red-ink); box-shadow: 0 0 0 3px var(--red); }
+#view-poe .pg-sev-dot.sev-warn { background: var(--nw-orange-37, #b54708); box-shadow: 0 0 0 3px var(--yellow); }
+#view-poe .pg-sev-dot.sev-ok { background: var(--green-ink); opacity: 0.6; }
+
+/* Utilisation bar (width comes from --pg-pct, set from data-pct by poe.js) */
+#view-poe .pg-util { display: flex; align-items: center; gap: 8px; }
+#view-poe .pg-util b { min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+#view-poe .pg-util.sev-crit b { color: var(--red-ink); }
+#view-poe .pg-util.sev-warn b { color: var(--nw-orange-37, #b54708); }
+#view-poe .pg-bar { position: relative; display: block; flex: 1 1 auto; min-width: 40px; height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+#view-poe .pg-bar > i { position: absolute; left: 0; top: 0; bottom: 0; width: var(--pg-pct, 0%); border-radius: inherit; background: var(--green-ink); }
+#view-poe .sev-warn .pg-bar > i, #view-poe .pg-tile-total.sev-warn .pg-bar > i { background: var(--nw-orange-37, #b54708); }
+#view-poe .sev-crit .pg-bar > i, #view-poe .pg-tile-total.sev-crit .pg-bar > i { background: var(--red-ink); }
+
+/* Issue feed */
+#view-poe .pg-issue-list { display: grid; gap: 6px; max-height: min(52vh, 560px); overflow: auto; padding-right: 6px; }
+#view-poe .pg-issue {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 10px; font: inherit; color: var(--ink);
+  border: 1px solid var(--line); border-left-width: 3px; border-radius: calc(8px * var(--nw-radius, 1)); background: var(--panel-2); cursor: pointer;
+}
+#view-poe .pg-issue.sev-crit { border-left-color: var(--red-ink); }
+#view-poe .pg-issue.sev-warn { border-left-color: var(--nw-orange-37, #b54708); }
+#view-poe .pg-issue:hover { border-color: var(--blue); }
+#view-poe .pg-issue:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+#view-poe .pg-issue .pg-sev-dot { box-shadow: none; }
+#view-poe .pg-issue-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+#view-poe .pg-issue-text b, #view-poe .pg-issue-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#view-poe .pg-issue-text b { font-size: 13px; font-weight: 600; }
+#view-poe .pg-issue-text small { font-size: 11px; color: var(--muted); }
+#view-poe .pg-go { color: var(--muted); font-size: 16px; flex: none; }
+#view-poe .pg-more-note { font-size: 12px; padding: 4px 2px; }
+
+/* Top power-drawing ports */
+#view-poe .pg-port-list { display: grid; gap: 4px; }
+#view-poe .pg-port {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 3px 10px; align-items: center;
+  width: 100%; padding: 7px 10px; text-align: left; font: inherit; color: var(--ink); border: 1px solid transparent;
+  border-radius: calc(8px * var(--nw-radius, 1)); background: transparent; cursor: pointer;
+}
+#view-poe .pg-port:hover { border-color: var(--line); background: var(--panel-2); }
+#view-poe .pg-port:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+#view-poe .pg-port-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+#view-poe .pg-port-name b { font-size: 13px; flex: none; }
+#view-poe .pg-port-name small { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#view-poe .pg-port-w { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 13px; }
+#view-poe .pg-port-w.poe-draw-mid { color: var(--nw-orange-37, #b54708); }
+#view-poe .pg-port-w.poe-draw-high { color: var(--red-ink); }
+#view-poe .pg-port-bar { grid-column: 1 / -1; height: 4px; }
+#view-poe .pg-port-bar > i { background: var(--blue); opacity: 0.75; }

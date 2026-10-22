@@ -1,0 +1,163 @@
+/* NodeWatch v0.10.15 – traffic styles (loaded after ui-tools.css). Use theme tokens only. */
+
+/* ---------- Compact status bar (replaces the long "Showing … · Palo Alto answered in … · Live …" line) */
+.tl-status {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  margin: 2px 0 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.tl-status:empty { display: none; }
+.tl-stat-count { color: var(--muted); white-space: nowrap; }
+.tl-stat-count strong { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.tl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: default;
+}
+.tl-chip-icon { font-size: 11px; opacity: 0.8; }
+.tl-chip-quiet { background: transparent; }
+.tl-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--green, #12b76a) 45%, transparent);
+  background: color-mix(in srgb, var(--green, #12b76a) 12%, transparent);
+  color: var(--green-ink, #116b3a);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: help;
+}
+.tl-live-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green, #12b76a);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--green, #12b76a) 50%, transparent);
+  animation: tl-live-ping 2s ease-out infinite;
+}
+@keyframes tl-live-ping {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--green, #12b76a) 50%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 6px transparent; }
+}
+/* Thin indeterminate bar while the wider window loads (instead of words). */
+.tl-progress {
+  position: relative;
+  flex: 0 0 120px;
+  height: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--blue) 15%, transparent);
+}
+.tl-progress::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--blue);
+  animation: tl-progress 1.2s ease-in-out infinite;
+}
+@keyframes tl-progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tl-live-pill-dot, .tl-progress::after { animation: none; }
+  .tl-progress::after { width: 100%; opacity: 0.6; }
+}
+
+/* ---------- Header actions + exit button */
+.tl-head-actions { display: inline-flex; align-items: center; gap: 10px; }
+.tl-exit-fs { display: none; }
+
+/* ---------- Paged rendering: "show more" row */
+.tl-table tbody tr.tl-more-row td {
+  position: static;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--panel-2) !important;
+  max-width: none;
+}
+.tl-more {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--blue);
+  font: inherit;
+  font-size: 12.5px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.tl-more:hover, .tl-more:focus-visible { border-color: var(--blue); outline: none; }
+
+/* ---------- Full screen
+   A solid layer on <body>: header and toolbar stay put, only the table scrolls, so the exit
+   button is always visible. No backdrop blur and no giant shadow (both made scrolling laggy). */
+body.tl-fs-open { overflow: hidden; }
+/* The app behind the layer is not painted while full screen is open: some themes' decorative
+   backgrounds made every scroll frame of the table 4-5x slower. Layout is kept, so exit is instant. */
+body.tl-fs-open > .app-frame { visibility: hidden; }
+.tl-fs-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482000;
+  background: color-mix(in srgb, var(--ink) 38%, transparent);
+}
+body > .detective-traffic-subsection.tl-fullscreen {
+  position: fixed;
+  inset: 12px;
+  z-index: 2147482001;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 16px 20px 14px;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: calc(14px * var(--nw-radius, 1));
+  box-shadow: 0 12px 32px -12px color-mix(in srgb, var(--ink) 35%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  contain: layout paint;
+}
+body > .detective-traffic-subsection.tl-fullscreen > * { flex: 0 0 auto; }
+body > .detective-traffic-subsection.tl-fullscreen > .section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+body > .detective-traffic-subsection.tl-fullscreen .tl-exit-fs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+body > .detective-traffic-subsection.tl-fullscreen .tl-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+body > .detective-traffic-subsection.tl-fullscreen .tl-pop { z-index: 5; }

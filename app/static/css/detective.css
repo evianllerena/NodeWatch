@@ -1,0 +1,242 @@
+/* NodeWatch v0.10.24 – Device Finder: "Requires attention" conditions and "More details" grid.
+   Theme tokens only (the --nw-* palette with fallbacks, as in style.css). */
+
+/* ---------------------------------------------------------------- conditions */
+#detectiveAlarms.detective-mini-list {
+  max-height: 420px;
+}
+.dt-cond-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.dt-cond-chip {
+  appearance: none;
+  font: inherit;
+  font-size: calc(var(--fs-xs, 12.5px) * var(--nw-tse, 1));
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+}
+.dt-cond-chip span {
+  margin-left: 4px;
+  opacity: 0.75;
+}
+.dt-cond-chip[aria-pressed='true'] {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.dt-cond-chip.critical[aria-pressed='true'] {
+  border-color: var(--nw-red-49, #d92d20);
+  color: var(--nw-red-49, #d92d20);
+}
+.dt-cond-chip.warning[aria-pressed='true'] {
+  border-color: var(--nw-amber-50, #f79009);
+  color: var(--nw-amber-50, #f79009);
+}
+.dt-cond {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--nw-gray-65, #98a2b3);
+  border-radius: calc(9px * var(--nw-radius, 1));
+  background: var(--panel-2);
+  font-size: calc(var(--fs-xs, 12.5px) * var(--nw-tse, 1));
+  min-width: 0;
+}
+.dt-cond.critical {
+  border-left-color: var(--nw-red-49, #d92d20);
+}
+.dt-cond.warning {
+  border-left-color: var(--nw-amber-50, #f79009);
+}
+.dt-cond > summary {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.dt-cond > summary::-webkit-details-marker {
+  display: none;
+}
+.dt-cond > summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.dt-cond-main {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.dt-cond-main strong {
+  color: var(--ink);
+}
+.dt-cond-main small {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dt-cond > summary time {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.dt-cond[open] > summary .dt-cond-main small {
+  white-space: normal;
+}
+.dt-cond-facts {
+  margin: 0;
+  padding: 2px 12px 10px 28px;
+  display: grid;
+  gap: 4px;
+}
+.dt-cond-fact {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 10px;
+}
+.dt-cond-fact dt {
+  color: var(--muted);
+}
+.dt-cond-fact dd {
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  display: grid;
+  gap: 4px;
+}
+.dt-cond-device b {
+  color: var(--ink);
+}
+.dt-cond-device .link-btn {
+  font-size: inherit;
+  margin-left: 6px;
+}
+
+/* ---------------------------------------------------------------- more details */
+.dt-more-subtitle {
+  margin: 2px 0 0;
+  font-size: calc(var(--fs-xs, 12.5px) * var(--nw-tse, 1));
+}
+#detectiveMoreInline {
+  container-type: inline-size;
+}
+#detectiveMoreContent.detective-more-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+.dt-more-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: auto;
+  grid-auto-flow: row dense;
+  gap: 12px;
+  align-items: stretch;
+}
+@container (max-width: 1100px) {
+  .dt-more-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container (max-width: 520px) {
+  .dt-more-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dt-more-span .dt-more-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.dt-more-card.detective-more-section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: calc(11px * var(--nw-radius, 1));
+  background: var(--card);
+}
+.dt-more-card.dt-more-span {
+  grid-column: 1 / -1;
+}
+.dt-more-span .dt-more-body {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 28px;
+}
+@container (max-width: 1100px) {
+  .dt-more-span .dt-more-body {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* In multi-column bodies every row keeps its divider (the first row of each column too). */
+.dt-more-span .detective-more-row:first-of-type {
+  border-top: 1px solid var(--line);
+}
+.dt-more-title {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.dt-more-body {
+  display: grid;
+  align-content: start;
+}
+.dt-more-card .detective-more-row {
+  grid-template-columns: minmax(0, 46%) minmax(0, 54%);
+  gap: 12px;
+  border-top-color: var(--line);
+}
+.dt-more-card .detective-more-row span {
+  color: var(--muted);
+}
+.dt-more-card .detective-more-row strong {
+  color: var(--ink);
+  text-align: left;
+  font-weight: 600;
+}
+.dt-more-card .detective-more-event {
+  border-top-color: var(--line);
+}
+.dt-more-card .detective-more-event strong {
+  color: var(--ink);
+}
+.dt-more-card .detective-more-event span,
+.dt-more-card .detective-more-event time {
+  color: var(--muted);
+}
+/* A last card alone in its row fills the row (its facts in columns), so no lone narrow card. */
+.dt-more-card.dt-more-fill-2 {
+  grid-column: span 2;
+}
+.dt-more-card.dt-more-fill-3 {
+  grid-column: span 3;
+}
+.dt-more-fill-2 .dt-more-body,
+.dt-more-fill-3 .dt-more-body {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 28px;
+}
+.dt-more-fill-2 .detective-more-row:first-of-type,
+.dt-more-fill-3 .detective-more-row:first-of-type {
+  border-top: 1px solid var(--line);
+}
+@container (max-width: 520px) {
+  .dt-more-card.dt-more-fill-2,
+  .dt-more-card.dt-more-fill-3 {
+    grid-column: auto;
+  }
+  .dt-more-fill-2 .dt-more-body,
+  .dt-more-fill-3 .dt-more-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

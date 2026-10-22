@@ -1,0 +1,190 @@
+{
+  "default": "aurora",
+  "groups": [
+    "Monitor",
+    "Investigate",
+    "Operate",
+    "Govern",
+    "Secure",
+    "Data",
+    "System"
+  ],
+  "themes": {
+    "original": {
+      "label": "Original",
+      "description": "NodeWatch v0.10.7 as shipped.",
+      "nav": "full",
+      "mode": "light",
+      "font": null,
+      "preview": {
+        "background": "#f5f7fb",
+        "surface": "#ffffff",
+        "text": "#172033",
+        "accent": "#3157d5",
+        "sidebar": "#101828",
+        "critical": "#b42318",
+        "ok": "#12b76a"
+      }
+    },
+    "refined": {
+      "label": "Refined",
+      "description": "The current look, tidied: grouped compact sidebar, all tools visible, calmer cards.",
+      "nav": "compact",
+      "mode": "light",
+      "font": null,
+      "preview": {
+        "background": "#f5f7fb",
+        "surface": "#ffffff",
+        "text": "#172033",
+        "accent": "#3157d5",
+        "sidebar": "#101828",
+        "critical": "#b42318",
+        "ok": "#12b76a"
+      }
+    },
+    "midnight": {
+      "label": "Midnight NOC",
+      "description": "Dark operations-centre theme for wall screens and night shifts; status colours stand out.",
+      "nav": "compact",
+      "mode": "dark",
+      "font": null,
+      "preview": {
+        "background": "#151820",
+        "surface": "#222222",
+        "text": "#ced2dc",
+        "accent": "#8bcfe1",
+        "sidebar": "#151820",
+        "critical": "#e77269",
+        "ok": "#65ecad"
+      }
+    },
+    "compact": {
+      "label": "Compact Ops",
+      "description": "Data-dense: sharper corners, more rows on screen. Teal accent. Pair with the Compact NOC layout.",
+      "nav": "rail",
+      "mode": "light",
+      "font": null,
+      "preview": {
+        "background": "#f4f6f7",
+        "surface": "#ffffff",
+        "text": "#1e252c",
+        "accent": "#31d5c6",
+        "sidebar": "#161c22",
+        "critical": "#b42318",
+        "ok": "#12b76a"
+      }
+    },
+    "workspace": {
+      "label": "Top Bar Workspace",
+      "description": "Soft violet accent and rounder cards. Pair with the Top navigation layout.",
+      "nav": "top",
+      "mode": "light",
+      "font": null,
+      "preview": {
+        "background": "#f7f7fb",
+        "surface": "#ffffff",
+        "text": "#1f1d2d",
+        "accent": "#6931d5",
+        "sidebar": "#ffffff",
+        "critical": "#b42318",
+        "ok": "#12b76a"
+      }
+    },
+    "fluent": {
+      "label": "Windows Fluent",
+      "description": "Matches Windows 11: light sidebar, Segoe UI Variable, Windows blue, subtle borders.",
+      "nav": "compact",
+      "mode": "light",
+      "font": null,
+      "preview": {
+        "background": "#f3f3f3",
+        "surface": "#ffffff",
+        "text": "#252525",
+        "accent": "#3185d5",
+        "sidebar": "#ffffff",
+        "critical": "#b42318",
+        "ok": "#12b76a"
+      }
+    },
+    "aurora": {
+      "label": "Aurora Glass",
+      "description": "Frosted floating sidebar and cards over a soft violet-and-cyan glow. Plus Jakarta Sans.",
+      "nav": "compact",
+      "mode": "light",
+      "font": "Plus Jakarta Sans",
+      "preview": {
+        "background": "#f4f5fb",
+        "surface": "#ffffff",
+        "text": "#1d1f2d",
+        "accent": "#5331d5",
+        "sidebar": "#ffffff",
+        "critical": "#b42318",
+        "ok": "#12b76a"
+      }
+    },
+    "graphite": {
+      "label": "Graphite",
+      "description": "Modern dark: neutral graphite, hairline borders, violet accent, sidebar blends into the page. Onest.",
+      "nav": "compact",
+      "mode": "dark",
+      "font": "Onest",
+      "preview": {
+        "background": "#0e0f11",
+        "surface": "#222222",
+        "text": "#d4d4d6",
+        "accent": "#9a8be1",
+        "sidebar": "#0e0f11",
+        "critical": "#e77269",
+        "ok": "#65ecad"
+      }
+    },
+    "studio": {
+      "label": "Studio",
+      "description": "Minimal monochrome: white and near-black, colour only for status. Black buttons. Geist.",
+      "nav": "compact",
+      "mode": "light",
+      "font": "Geist",
+      "preview": {
+        "background": "#fafafa",
+        "surface": "#ffffff",
+        "text": "#252525",
+        "accent": "#316fd5",
+        "sidebar": "#fafafa",
+        "critical": "#b42318",
+        "ok": "#12b76a"
+      }
+    },
+    "signal": {
+      "label": "Signal",
+      "description": "Deep teal frame with pages on a rounded light sheet, pill buttons, soft depth. Manrope.",
+      "nav": "compact",
+      "mode": "light",
+      "font": "Manrope",
+      "preview": {
+        "background": "#f5f8f8",
+        "surface": "#ffffff",
+        "text": "#20282a",
+        "accent": "#31d5c0",
+        "sidebar": "#113b34",
+        "critical": "#b42318",
+        "ok": "#12b76a"
+      }
+    },
+    "cloud": {
+      "label": "Cloud",
+      "description": "Very round white cards on cool blue-grey. Figtree. Pair with the Top navigation layout.",
+      "nav": "top",
+      "mode": "light",
+      "font": "Figtree",
+      "preview": {
+        "background": "#edf2f7",
+        "surface": "#ffffff",
+        "text": "#1d242d",
+        "accent": "#318ad5",
+        "sidebar": "#ffffff",
+        "critical": "#b42318",
+        "ok": "#12b76a"
+      }
+    }
+  }
+}

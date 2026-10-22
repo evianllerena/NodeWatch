@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en" data-theme="{{ ui_theme }}" data-mode="{{ ui_mode }}" data-theme-nav="{{ ui_nav }}" data-nav="{{ ui_nav_effective }}" data-night="{{ ui_night }}" data-night-pref="{{ ui_night_pref }}" data-layout="{{ ui_layout.preset }}" data-lnav="{{ ui_layout.nav }}" data-ldensity="{{ ui_layout.density }}" data-lwidth="{{ ui_layout.width }}" data-lradius="{{ ui_layout.radius }}" data-lglass="{{ ui_layout.glass }}" data-lshadow="{{ ui_layout.shadows }}" data-text="{{ ui_layout.text }}" data-layout-saved="{{ '1' if ui_layout_saved else '0' }}"{% if ui_menu_hidden %} class="menu-hidden"{% endif %}>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="nodewatch-write-token" content="{{ write_request_token }}" />
+  <title>NodeWatch</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/nodewatch-icon-32.png?v={{ app_version }}" />
+  <link rel="icon" type="image/png" sizes="64x64" href="/static/brand/nodewatch-icon-64.png?v={{ app_version }}" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/static/brand/nodewatch-mark.png?v={{ app_version }}" />
+  <link rel="apple-touch-icon" href="/static/brand/nodewatch-mark.png?v={{ app_version }}" />
+  <script src="/static/night.js?v={{ app_version }}"></script>
+  <link rel="stylesheet" href="/static/style.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/themes.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/ui-tools.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/port-toolkit.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/chassis.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/power-guard.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/backups.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/layout.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/traffic.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/siem.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/attention.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/connections.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/topology.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/detective.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/security.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/refinements.css?v={{ app_version }}" />
+  <link rel="stylesheet" href="/static/css/report.css?v={{ app_version }}" />
+</head>
+<body>
+  <div class="app-frame">
+    <aside class="sidebar" data-ui="Sidebar">
+      <button id="brandHome" class="brand-block brand-home" type="button" title="Return to Command Center" aria-label="NodeWatch — return to Command Center">
+        <img class="brand-logo" src="/static/brand/nodewatch-mark.png?v={{ app_version }}" width="40" height="40" alt="" aria-hidden="true" />
+        <div class="brand-name">NodeWatch</div>
+      </button>
+      <nav id="toolNav" class="tool-nav" data-ui="Sidebar › Navigation"></nav>
+    </aside>
+    <button id="sidebarHandle" class="sidebar-handle" type="button" aria-controls="toolNav" aria-expanded="true" aria-label="Collapse menu to icons" data-tip="Collapse menu · Ctrl+B" data-ui="Sidebar › Collapse handle"><span class="sidebar-handle-icon" aria-hidden="true">‹</span></button>
+
+    <main class="workspace">
+      <header class="workspace-head" data-ui="Page header">
+        <div data-ui="Page header › Title">
+          <div class="eyebrow" id="pageEyebrow">Overview</div>
+          <h2 id="pageTitle">Dashboard</h2>
+          <p id="pageDescription">Mist network operations and attention view.</p>
+        </div>
+        <div class="header-actions" data-ui="Page header › Status &amp; actions">
+          <button id="nightToggle" class="btn ghost night-toggle" type="button" aria-pressed="false" title="Night mode"><span class="night-icon" aria-hidden="true">☾</span><span class="night-label">Night</span></button>
+          <button id="globalRefresh" class="btn secondary">Refresh NOC</button>
+          <div id="connectionPill" class="status-pill connection-prominent"><span class="dot amber"></span><span>Checking connection</span></div>
+        </div>
+      </header>
+
+      <section id="view-dashboard" class="tool-view">
+        <section class="noc-filterbar card" data-ui="Command Center › Filters">
+          <div class="field"><label for="nocSiteFilter">Site</label><select id="nocSiteFilter" data-site-picker><option>All Sites</option></select></div>
+          <div class="field"><label for="nocSeverityFilter">Severity</label><select id="nocSeverityFilter"><option>All Severities</option><option>Critical</option><option>Warning</option></select></div>
+          <div class="field noc-search-field"><label for="nocSearch">Quick search</label><input id="nocSearch" placeholder="Device, MAC, IP, user, site..." /></div>
+          <div class="noc-refresh-meta"><span class="live-dot" aria-hidden="true"></span><strong id="nocModeLabel" class="hidden"></strong><span id="nocCountdown" class="noc-countdown" aria-live="off">Refresh in 20s</span><small id="nocUpdated">Loading...</small></div>
+        </section>
+
+        <section id="nocSearchResults" class="card noc-search-results hidden" data-ui="Command Center › Search results" aria-live="polite"></section>
+
+        <div id="nocSummary" class="noc-summary-grid" data-ui="Command Center › Summary tiles"></div>
+
+        <section class="card disconnect-watch-card" data-ui="Command Center › Disconnect Watch">
+          <div class="section-heading compact"><div><div class="eyebrow">Outage visibility</div><h3>Disconnect Watch</h3></div><div class="heading-actions"><span id="disconnectWatchState" class="count">Checking...</span><button id="openAlertingCenter" class="btn ghost small">Alert settings</button></div></div>
+          <p class="muted panel-help">Current device losses plus recent disconnect/reconnect events. Multiple simultaneous losses at one site are correlated as a possible power, upstream/core, WAN, or cloud-reachability outage.</p>
+          <div id="disconnectWatchSummary" class="disconnect-watch-summary"></div>
+          <div id="disconnectClusters" class="disconnect-clusters"></div>
+          <div id="disconnectDevices" class="disconnect-device-strip"></div>
+        </section>
+
+        <div class="noc-main-grid">
+          <section class="card noc-attention-card" data-ui="Command Center › Requires Attention">
+            <div class="section-heading compact">
+              <div><div class="eyebrow">Incidents</div><h3>Requires Attention</h3></div>
+              <div class="heading-actions attention-heading-actions"><div id="attentionCount" class="count"></div></div>
+            </div>
+            <p class="muted noc-subtitle">Alerts from every connected source, grouped into incidents. Open one to see what is wrong, where, since when and what to do. Acknowledge, snooze, dismiss or mute — every action can be undone.</p>
+            <div class="attention-workbench-toolbar">
+              <div id="attentionTabs" class="attention-tabs" role="tablist" aria-label="Attention queue view">
+                <button class="attention-tab active" role="tab" data-attention-view="needs">Needs attention <span id="tabNeedsCount">0</span></button>
+                <button class="attention-tab" role="tab" data-attention-view="mine" title="Incidents with alerts assigned to you" data-ui="Command Center › Requires Attention › Mine">Mine <span id="tabMineCount">0</span></button>
+                <button class="attention-tab" role="tab" data-attention-view="acknowledged">Acknowledged <span id="tabAckCount">0</span></button>
+                <button class="attention-tab" role="tab" data-attention-view="all">All open <span id="tabAllCount">0</span></button>
+                <button class="attention-tab" role="tab" data-attention-view="possibly_resolved" title="Still open in the source, but the device is connected now or the alarm has not repeated for 24 hours">Possibly resolved <span id="tabResolvedCount">0</span></button>
+                <button class="attention-tab" role="tab" data-attention-view="suppressed">Snoozed &amp; muted <span id="tabSuppressedCount">0</span></button>
+              </div>
+              <div class="attention-sort-controls">
+                <button id="clearIssueFilter" class="btn ghost small">Clear filter</button>
+                <label for="attentionSort">Sort</label>
+                <select id="attentionSort">
+                  <option value="priority">Priority</option>
+                  <option value="largest">Most alerts</option>
+                  <option value="newest">Newest activity</option>
+                  <option value="oldest">Longest open</option>
+                  <option value="site">Site</option>
+                </select>
+              </div>
+            </div>
+            <div id="attentionNoisy" class="attn-noisy hidden" aria-label="Noisiest alert types"></div>
+            <div id="activeIssueFilter" class="drill-filter hidden"></div>
+            <div class="attention-viewport" aria-live="polite"><div id="attentionList" class="attention-list"></div></div>
+            <div class="attention-pagination"><span id="attentionPageInfo"></span><span class="attn-keys muted">Click an incident for details · ↑/↓ moves between incidents · Esc closes</span></div>
+          </section>
+
+          <aside class="noc-side-stack">
+            <section class="card noc-panel" data-ui="Command Center › Network Health">
+              <div class="section-heading compact"><div><div class="eyebrow">Device status</div><h3>Network Health</h3></div></div>
+              <p class="muted panel-help">APs, switches, and gateways from current Mist inventory/connectivity status. Click a row to drill into that device type.</p>
+              <div id="healthList" class="health-list"></div>
+            </section>
+            <section class="card noc-panel" data-ui="Command Center › Issue Categories">
+              <div class="section-heading compact"><div><div class="eyebrow">Active</div><h3>Issue Categories</h3></div></div>
+              <p class="muted panel-help">Click a category to list the specific active problems.</p>
+              <div id="alarmGroups" class="alarm-groups"></div>
+            </section>
+          </aside>
+        </div>
+
+        <div class="noc-lower-grid">
+          <section class="card noc-panel" data-ui="Command Center › Site Health">
+            <div class="section-heading compact"><div><div class="eyebrow">Sites</div><h3>Site Health</h3></div><span class="count">Device availability</span></div>
+            <p class="muted panel-help">This percentage is current managed-device connectivity from Mist site statistics, not a synthetic score or SLE score. Click a site to drill into its active issues.</p>
+            <div id="siteHealth" class="site-health-list"></div>
+          </section>
+          <section class="card noc-panel" data-ui="Command Center › Recent Device Events">
+            <div class="section-heading compact"><div><div class="eyebrow">Timeline</div><h3>Recent Device Events</h3></div><span class="count">Open + cleared</span></div>
+            <div id="recentEvents" class="event-timeline"></div>
+          </section>
+        </div>
+
+        <section id="nocAlerts" class="card content-card noc-alerts-card" data-ui="Command Center › Alerts &amp; Notifications">
+          <div class="section-heading compact"><div><div class="eyebrow">Disconnect alerting</div><h3>Alerts &amp; Notifications</h3></div><span id="alertingState" class="count">Loading...</span></div>
+          <p class="muted panel-help">While NodeWatch is running it raises an alert when an access point, switch or gateway stays disconnected, and when several devices at one site drop together (a <em>possible</em> power or upstream outage, never stated as confirmed). Choose below how you are told.</p>
+          <div class="alerting-layout">
+            <div>
+              <div class="alerting-policy-note"><span id="alertingSent">No webhook alerts sent yet</span> · Transient / recovered events suppressed this cycle: <strong id="alertingSuppressed">0</strong></div>
+              <div class="editor-actions left"><button id="alertingBrowser" class="btn primary">Enable Browser Alerts</button><span id="alertingBrowserState" class="muted"></span></div>
+              <div class="section-heading compact top-gap"><div><div class="eyebrow">Live feed</div><h4>Recent / active alerts</h4></div><span id="alertingCount" class="count">0</span></div>
+              <div id="alertingFeed" class="alerting-feed"></div>
+            </div>
+            <div class="alerting-config-card alerting-policy-panel" data-ui="Command Center › Alert Settings">
+            <div class="eyebrow">Policy</div><h4>When to alert</h4>
+            <label class="check-row"><input id="alertingEnabled" type="checkbox" checked> Monitor disconnects while the application is running</label>
+            <div class="alerting-config-grid">
+              <div class="field"><label>Poll interval</label><select id="alertingPoll"><option value="30">30 seconds</option><option value="60" selected>60 seconds</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select></div>
+              <div class="field"><label>Minimum devices for site outage</label><input id="alertingMinDevices" type="number" min="2" max="100" value="3"></div>
+              <div class="field"><label>Minimum site % down</label><input id="alertingPercent" type="number" min="5" max="100" value="25"></div>
+              <div class="field"><label>Site-outage reminder</label><select id="alertingCooldown"><option value="300">5 minutes</option><option value="900">15 minutes</option><option value="1800" selected>30 minutes</option><option value="3600">1 hour</option></select></div><div class="field"><label>Disconnect confirmation delay</label><select id="alertingGrace"><option value="60">1 minute</option><option value="120" selected>2 minutes</option><option value="180">3 minutes</option><option value="300">5 minutes</option></select></div>
+            </div>
+            <div class="alerting-type-toggles"><label><input id="alertingAp" type="checkbox" checked> AP disconnects</label><label><input id="alertingSwitch" type="checkbox" checked> Switch disconnects</label><label><input id="alertingGateway" type="checkbox" checked> Gateway, WAN edge &amp; other infrastructure disconnects</label></div><div class="alerting-policy-toggles"><label class="check-row"><input id="alertingRequireActive" type="checkbox" checked> Notify only if Mist still reports the device down after the confirmation delay</label><label class="check-row"><input id="alertingIsolatedAp" type="checkbox"> Notify isolated AP disconnects (off by default to reduce transient Wi-Fi noise)</label></div>
+            <hr>
+            <div class="eyebrow">External notification</div><h4>HTTPS webhook</h4>
+            <p class="muted">Optional. Send deduplicated alerts to a generic HTTPS endpoint or Slack-compatible incoming webhook. The webhook URL is stored separately in Windows Credential Manager.</p>
+            <label class="check-row"><input id="alertingWebhookEnabled" type="checkbox"> Send alerts to webhook</label>
+            <div class="field"><label>Webhook format</label><select id="alertingWebhookFormat"><option value="generic">Generic JSON</option><option value="slack">Slack-compatible</option></select></div>
+            <div class="field"><label>Webhook URL</label><input id="alertingWebhookUrl" type="password" placeholder="Leave blank to keep saved URL"></div>
+            <div class="editor-actions left"><button id="alertingSave" class="btn primary">Save alert settings</button><button id="alertingTest" class="btn secondary">Send Test Alert</button></div>
+            <div id="alertingMessage" class="muted top-gap"></div>
+            <div class="notice info top-gap">For true 24×7 alerting when the desktop app is closed, use Mist's native <strong>device-updowns</strong> alert/webhook capability or run this backend as a Windows service. This local monitor only runs while NodeWatch is running.</div>
+          </div>
+          </div>
+        </section>
+      </section>
+
+      <section id="view-detective" class="tool-view hidden">
+        <section class="card detective-search-card detective-console-search" data-ui="Device Finder › Find a client or device">
+          <div class="section-heading compact">
+            <div><div class="eyebrow">Investigation console</div><h3>Find a client or device</h3></div>
+            <div id="detectiveLiveState" class="detective-live-state"><span class="live-dot"></span><strong>LIVE</strong><span id="detectiveRefreshCountdown">Select a device</span></div>
+          </div>
+          <form id="detectiveSearchForm" class="detective-search-form detective-search-compact">
+            <div class="field detective-site-field"><label for="detectiveSite">Site</label><select id="detectiveSite" data-site-picker><option value="">All Sites</option></select></div>
+            <div class="field detective-query-field"><label for="detectiveQuery">Search criteria <span class="muted">(optional when a site is selected)</span></label><input id="detectiveQuery" autocomplete="off" placeholder="IP, MAC, hostname, username, AP, switch, serial..." /></div>
+            <button id="detectiveSearchBtn" class="btn primary" type="submit">Investigate</button>
+          </form>
+          <div id="detectiveSearchMeta" class="muted detective-search-meta">Select a site to list its devices, or add search criteria to narrow the investigation.</div>
+        </section>
+
+        <div class="detective-layout detective-console-layout">
+          <section class="card detective-results-card" data-ui="Device Finder › Results">
+            <div class="section-heading compact"><div><div class="eyebrow">Matches</div><h3>Results</h3></div><span id="detectiveResultCount" class="count">0</span></div>
+            <div id="detectiveResultToolbar" class="detective-result-toolbar detective-result-toolbar-compact">
+              <input id="detectiveResultSearch" type="search" placeholder="Search results..." aria-label="Search results">
+              <select id="detectiveConnectionFilter" aria-label="Connection"><option value="">Connection: All</option></select>
+              <select id="detectiveTypeFilter" aria-label="Device type"><option value="">Type: All</option></select>
+              <select id="detectiveVendorFilter" aria-label="Vendor"><option value="">Vendor: All</option></select>
+              <select id="detectiveSort" aria-label="Sort results"><option value="relevance">Sort: Relevance</option><option value="last_seen">Sort: Last seen</option><option value="hostname">Sort: Hostname</option><option value="ip">Sort: IP address</option><option value="vendor">Sort: Vendor</option><option value="type">Sort: Device type</option></select>
+            </div>
+            <div id="detectiveResultScope" class="muted detective-result-scope hidden"></div>
+            <div id="detectivePaginationTop" class="detective-pagination detective-pagination-top hidden"><button id="detectivePrevPageTop" class="btn ghost small" type="button">Previous</button><span id="detectivePageInfoTop" class="muted"></span><button id="detectiveNextPageTop" class="btn ghost small" type="button">Next</button><select id="detectivePageSizeTop" aria-label="Results per page"><option value="50">50 / page</option><option value="100" selected>100 / page</option><option value="200">200 / page</option><option value="500">500 / page</option></select></div>
+            <div id="detectiveResults" class="detective-results">
+              <div class="detective-empty"><strong>Select a site or search.</strong><span>Site-only investigations list the complete site result set; filters below never change server-side site scope.</span></div>
+            </div>
+            <div id="detectivePagination" class="detective-pagination hidden"><button id="detectivePrevPage" class="btn ghost small" type="button">Previous</button><span id="detectivePageInfo" class="muted"></span><button id="detectiveNextPage" class="btn ghost small" type="button">Next</button><select id="detectivePageSize" aria-label="Results per page"><option value="50">50 / page</option><option value="100" selected>100 / page</option><option value="200">200 / page</option><option value="500">500 / page</option></select></div>
+          </section>
+
+          <section class="card detective-detail-card">
+            <div id="detectiveDetailEmpty" class="detective-empty large"><div class="detective-empty-icon">⌕</div><strong>Select a result</strong><span>Device, live connection, security, conditions, traffic, and deeper context will appear here.</span></div>
+            <div id="detectiveDetail" class="hidden">
+              <div class="detective-detail-head detective-sticky-summary">
+                <div><div class="eyebrow" id="detectiveDetailKind">Investigation</div><h3 id="detectiveDetailTitle"></h3><div id="detectiveIdentityMeta" class="meta-row"></div></div>
+                <div class="detective-detail-actions"><span id="detectiveDetailLoadTime" class="muted detective-load-time"></span><button id="detectiveDetailRefresh" class="btn secondary small" type="button">Refresh now</button></div>
+              </div>
+
+              <div id="detectiveCoreGrid" class="detective-core-grid">
+                <section class="detective-core-card"><div class="eyebrow">Device</div><div id="detectiveDeviceRows" class="detective-unified-rows"></div></section>
+                <section class="detective-core-card" data-ui="Device Finder › Device detail"><div class="eyebrow">Live connection</div><div id="detectiveConnectionRows" class="detective-unified-rows"></div></section>
+              </div>
+
+              <section id="detectiveSecuritySection" class="detective-main-section hidden">
+                <div class="section-heading compact"><div><div class="eyebrow">Security &amp; access</div><h4>Posture, identity, policy and sessions</h4></div></div>
+                <div id="detectiveSecurityRows" class="detective-security-grid"></div>
+                <div id="detectiveTrafficShell" class="detective-traffic-subsection">
+                  <div class="section-heading compact"><div><div class="eyebrow">Traffic &amp; Sessions</div><h4>Policy and session activity</h4></div><div class="tl-head-actions"><span id="detectiveTrafficState" class="count">On demand</span><button id="tlExitFullscreen" type="button" class="btn secondary small tl-exit-fs" title="Exit full screen (Esc)">✕ Exit full screen</button></div></div>
+                  <div id="detectiveTrafficToolbar" class="tl-toolbar hidden">
+                    <div class="tl-searchbar" role="search">
+                      <span class="tl-search-icon" aria-hidden="true">⌕</span>
+                      <input id="detectiveTrafficSearch" type="search" autocomplete="off" aria-label="Filter traffic logs" placeholder="Filter, e.g.  action=deny  port=443  app:ssl  -dns   (click any value in the table to add it)">
+                      <button id="tlApply" type="button" class="tl-icon-btn" title="Apply filter">→</button>
+                      <button id="tlClear" type="button" class="tl-icon-btn" title="Clear filter">✕</button>
+                      <button id="tlAddFilter" type="button" class="tl-icon-btn" title="Add a filter">⊕</button>
+                      <button id="tlColumns" type="button" class="tl-icon-btn" title="Choose columns (all fields Palo Alto sends)">▦</button>
+                      <button id="tlExport" type="button" class="tl-icon-btn" title="Export the visible rows as CSV">⇩</button>
+                    </div>
+                    <div class="tl-controls">
+                      <select id="detectiveTrafficWindow" aria-label="Time range"><option value="15m">Last 15 minutes</option><option value="1h" selected>Last hour</option><option value="6h">Last 6 hours</option><option value="24h">Last 24 hours</option></select>
+                      <div class="seg-control" role="radiogroup" aria-label="Action"><button type="button" role="radio" data-tl-action="all" aria-checked="true">All</button><button type="button" role="radio" data-tl-action="allow" aria-checked="false">Allowed</button><button type="button" role="radio" data-tl-action="deny" aria-checked="false">Denied / dropped</button></div>
+                      <button id="tlLive" type="button" class="btn ghost small tl-live" aria-pressed="false" title="Add new logs automatically every 20 seconds"><span class="tl-live-dot" aria-hidden="true"></span>Live</button>
+                      <button id="detectiveTrafficRefresh" class="btn ghost small" type="button">Refresh traffic</button>
+                      <button id="tlFullscreen" type="button" class="btn ghost small" aria-pressed="false">⤢ Full screen</button>
+                    </div>
+                    <div id="tlAddFilterPop" class="tl-pop hidden"><strong>Add a filter</strong><div class="tl-pop-row"><select id="tlAddField" aria-label="Field"></select><select id="tlAddOp" aria-label="Operator"><option value="=">is</option><option value="not">is not</option><option value="has">contains</option></select><input id="tlAddValue" type="text" placeholder="Value" aria-label="Value"><button id="tlAddGo" type="button" class="btn primary small">Add</button></div></div>
+                    <div id="tlColumnsPop" class="tl-pop hidden"><div class="tl-pop-head"><strong>Columns</strong><button id="tlColReset" type="button" class="link-btn">Reset to default</button></div><input type="search" placeholder="Find a field…" aria-label="Find a field"><small class="tl-col-count muted"></small><div class="tl-col-list"></div><small class="muted">Drag column headers to reorder them.</small></div>
+                  </div><div id="detectiveTrafficMeta" class="muted detective-traffic-meta tl-status" aria-live="polite"></div>
+                  <div id="detectiveTrafficTableWrap" class="table-wrap detective-traffic-table tl-wrap hidden"><table class="tl-table" data-nosort data-nofilter><thead id="detectiveTrafficHead"></thead><tbody id="detectiveTrafficRows"><tr><td class="muted">Select a device to load traffic context.</td></tr></tbody></table></div>
+                </div>
+              </section>
+
+              <section id="detectiveConditionsSection" class="detective-main-section hidden"><div class="section-heading compact"><div><div class="eyebrow">Conditions</div><h4>Requires attention</h4></div><span id="detectiveAlarmCount" class="count">0</span></div><div id="detectiveAlarms" class="detective-mini-list"></div></section>
+
+              <section id="detectiveMoreInline" class="detective-main-section"><div class="section-heading compact"><div><div class="eyebrow">More information</div><h4>More details</h4><p id="detectiveMoreSubtitle" class="muted dt-more-subtitle hidden"></p></div></div><div id="detectiveMoreContent" class="detective-more-content detective-more-inline"></div></section>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="view-topology" class="tool-view hidden" data-ui="Topology"></section>
+
+      <section id="view-virtual-chassis" class="tool-view hidden">
+        <section class="toolbar card compact-toolbar" data-ui="Chassis Manager › Virtual Chassis">
+          
+          <div class="field grow"><label for="siteSelect">Site</label><select id="siteSelect" data-site-picker><option value="">Select a site</option></select></div>
+          <button id="refreshBtn" class="btn secondary">Refresh VC Data</button>
+        </section>
+
+        <section id="vcOverview" class="card content-card vc-overview" data-ui="Chassis Manager › Stack health" aria-live="polite">
+          <div class="section-heading compact"><div><div class="eyebrow" id="vcOverviewScope">All sites</div><h3>Stack health</h3></div><div id="vcOverviewMeta" class="count"></div></div>
+          <div id="vcOverviewTiles" class="vc-tiles"></div>
+          <div id="vcOverviewWarn"></div>
+          <div class="table-wrap vc-rank-wrap"><table class="vc-rank"><thead><tr><th>Health</th><th>Stack</th><th>Site</th><th>Members</th><th>Roles</th><th>Firmware</th><th>Issues</th><th>Last VC event</th></tr></thead><tbody id="vcOverviewRows"></tbody></table></div>
+        </section>
+        <div class="section-heading"><div><div class="eyebrow">Discovery</div><h3>Virtual Chassis</h3></div><div id="vcCount" class="count"></div></div>
+        <div id="vcGrid" class="grid"></div>
+
+        <section id="vcHealthSection" class="card content-card vc-health hidden" data-ui="Chassis Manager › Stack detail">
+          <div class="editor-head"><div><div class="eyebrow">Stack detail</div><h3 id="vcHealthTitle"></h3><div id="vcHealthMeta" class="meta-row"></div></div><button id="vcHealthRefresh" type="button" class="btn secondary">Refresh detail</button></div>
+          <div id="vcHealthBody"></div>
+        </section>
+
+        <section id="editorSection" class="editor card hidden" data-ui="Chassis Manager › Member editor">
+          <div class="editor-head">
+            <div><div class="eyebrow">Member editor</div><h3 id="editorTitle"></h3><div id="editorMeta" class="meta-row"></div></div>
+            <button id="closeEditor" class="icon-btn" aria-label="Close">×</button>
+          </div>
+          <div class="notice info">Drag rows to change member order. Replacement preserves the member ID and role unless you explicitly change them. Apply writes the validated proposed VC configuration to Mist and creates a local before/request/after audit record.</div>
+          <div class="table-wrap"><table><thead><tr><th>Order</th><th>Member MAC</th><th>Serial / Firmware</th><th>Role</th><th>Actions</th></tr></thead><tbody id="memberRows"></tbody></table></div>
+          <div class="editor-actions"><button id="addMemberBtn" class="btn secondary">+ Add Member</button><div class="grow"></div><button id="resetBtn" class="btn ghost">Reset</button><button id="previewBtn" class="btn primary">Preview Changes</button></div>
+        </section>
+      </section>
+
+
+      <section id="view-operations" class="tool-view hidden">
+        <section class="toolbar card compact-toolbar"><div class="field"><label>Site</label><select id="opsSite" data-site-picker><option>Select site</option></select></div><div class="field grow"><label>Switch</label><select id="opsSwitch"><option>Select switch</option></select></div><button id="opsRefresh" class="btn secondary">Refresh</button></section><section id="opsFilterBar" class="card compact-filterbar hidden" data-ui="Port Toolkit › Filters"><input id="opsSearch" type="search" placeholder="Search port, MAC, neighbor, manufacturer..."><select id="opsSpeedFilter"><option value="">All speeds</option><option value="100">100 Mbps</option><option value="1000">1 Gbps</option><option value="2500">2.5 Gbps</option><option value="5000">5 Gbps</option><option value="10000">10 Gbps</option><option value="20000">20 Gbps</option><option value="25000">25 Gbps</option><option value="40000">40 Gbps</option><option value="100000">100 Gbps</option></select><select id="opsPoeFilter"><option value="">All PoE</option><option value="powered">Powered</option><option value="unpowered">Not powered</option></select><select id="opsSort"><option value="port">Sort: Port</option><option value="speed_desc">Speed high → low</option><option value="speed_asc">Speed low → high</option><option value="poe_desc">PoE draw high → low</option><option value="neighbor">Neighbor / manufacturer</option></select><label class="check-row"><input id="opsShowInternal" type="checkbox"> Show internal interfaces</label></section><div id="opsWarnings" class="ops-warnings"></div>
+        <section id="opsOverviewCard" class="card content-card ops-overview" data-ui="Port Toolkit › Port health overview" aria-live="polite">
+          <div class="section-heading compact"><div><div class="eyebrow">Port health</div><h3 id="opsOverviewTitle">Port health · All sites</h3><small id="opsOverviewMeta" class="muted"></small></div><button id="opsOverviewRefresh" type="button" class="btn ghost">Refresh</button></div>
+          <div id="opsOverviewTiles" class="ops-ov-tiles" role="group" aria-label="Issue categories"></div>
+          <div id="opsOverviewList" class="ops-ov-list"></div>
+        </section>
+        <section id="opsFaceplateCard" class="card content-card ops-faceplate-card hidden" data-ui="Port Toolkit › Switch ports">
+          <div class="section-heading compact"><div><div class="eyebrow">Switch ports</div><h3 id="opsFaceplateTitle">Switch</h3></div><div class="ops-legend" aria-hidden="true"><span><i class="lg up"></i>Up</span><span><i class="lg down"></i>Down</span><span><i class="lg poe"></i>PoE</span><span><i class="lg uplink"></i>Uplink</span><span><i class="lg unused"></i>Unused</span><span><i class="lg issue"></i>Issue</span><span><i class="lg sel"></i>Selected</span></div></div>
+          <p class="muted ops-faceplate-help">Every Virtual Chassis member is shown. Click a port to select it, Ctrl-click to add or remove one, Shift-click to select a range (across members too). Then edit its configuration on the right.</p>
+          <div id="opsMemberTabs" class="ops-member-tabs" role="tablist" aria-label="Virtual Chassis members"></div>
+          <div id="opsFaceplate" class="ops-faceplate" role="group" aria-label="Switch ports"></div>
+        </section>
+        <div id="opsPortLayout" class="ops-layout hidden">
+          <section class="card content-card" data-ui="Port Toolkit › Select a switch"><div class="section-heading compact"><div><div class="eyebrow">Port operations</div><h3 id="opsSwitchMeta">Select a switch</h3></div><div class="ops-table-tools"><span id="opsState" class="count"></span><button id="opsColumnsBtn" type="button" class="btn ghost ops-cols-btn" aria-haspopup="dialog" aria-expanded="false" title="Choose table columns">▦ Columns</button></div></div><div id="opsTableWrap" class="table-wrap ops-port-table"><table><thead><tr><th>Port</th><th>Link</th><th>Speed</th><th>PoE / Draw</th><th>Auth</th><th>MAC</th><th>Neighbor / Manufacturer</th></tr></thead><tbody id="opsPortRows"></tbody></table></div></section>
+          <aside id="opsActionPanel" class="card content-card hidden sticky-panel ops-config" data-ui="Port Toolkit › Port detail">
+            <div class="ops-config-head"><div><div class="eyebrow">Port configuration</div><h3 id="opsSelected">—</h3><small id="opsConfigSource" class="muted"></small></div><button id="opsConfigClose" type="button" class="icon-btn" aria-label="Clear selection" title="Clear selection">×</button></div>
+            <div id="opsConfigError" class="notice error hidden" role="alert"></div>
+            <label class="ops-field"><span>Port IDs</span><input id="opsPortIds" autocomplete="off" placeholder="ge-0/0/1, ge-0/0/4, ge-0/1/1-23"><small class="muted">(ge-0/0/1, ge-0/0/4, ge-0/1/1-23, etc)</small></label>
+            <fieldset class="ops-field ops-radios"><legend>Interface</legend><label><input type="radio" name="opsIf" value="l2" checked> L2 interface</label><label class="is-disabled" title="L3 interfaces are configured in Mist"><input type="radio" name="opsIf" value="l3" disabled> L3 interface</label><label class="is-disabled" title="L3 sub-interfaces are configured in Mist"><input type="radio" name="opsIf" value="l3sub" disabled> L3 sub-interfaces</label></fieldset>
+            <label class="ops-field"><span>Configuration Profile</span><select id="opsUsage"><option value="">Loading profiles…</option></select><small id="opsUsageSummary" class="muted ops-usage-summary"></small></label>
+            <label class="check-row"><input id="opsDynamic" type="checkbox"> Enable Dynamic Port Configuration</label>
+            <label class="ops-field"><span>Description</span><textarea id="opsDescription" rows="3" maxlength="128" placeholder="Add Description"></textarea></label>
+            <fieldset class="ops-field ops-radios"><legend>Up / Down Port Alerts</legend><label><input type="radio" name="opsCritical" value="on"> Enabled</label><label><input type="radio" name="opsCritical" value="off"> Disabled</label></fieldset>
+            <fieldset class="ops-field ops-radios"><legend>Port Aggregation</legend><label><input type="radio" name="opsAggr" value="on"> Enabled</label><label><input type="radio" name="opsAggr" value="off"> Disabled</label><input id="opsAeIdx" class="hidden ops-ae" type="number" min="0" max="127" placeholder="AE index (0-127)" aria-label="AE index"></fieldset>
+            <fieldset class="ops-field ops-radios"><legend>Allow switch port operator to modify port profile</legend><label><input type="radio" name="opsOperator" value="yes"> Yes</label><label><input type="radio" name="opsOperator" value="no"> No</label></fieldset>
+            <div class="ops-config-actions"><button id="opsApplyProfile" type="button" class="btn primary" disabled>Review changes</button><button id="opsConfigReset" type="button" class="btn ghost">Undo edits</button></div>
+            <div id="opsChangePreview" class="ops-change-preview hidden" aria-live="polite"></div>
+            <hr>
+            <div class="eyebrow">Port actions</div>
+            <div class="action-stack"><button id="opsDetails" type="button" class="btn ghost">Port details</button><button id="opsCable" type="button" class="btn secondary">Run Cable Test</button><button id="opsBounce" type="button" class="btn danger">Bounce Port</button></div>
+            <div id="opsResult" class="muted top-gap"></div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="view-validator" class="tool-view hidden">
+        <section class="toolbar card compact-toolbar"><div class="field"><label>Site</label><select id="valSite" data-site-picker><option>Select site</option></select></div><div class="field grow"><label>Switch</label><select id="valSwitch"><option>Select switch</option></select></div><button id="valRun" class="btn primary">Run Validation</button></section>
+        <div class="two-col"><section class="card content-card" data-ui="Change Verifier › Live verification"><div class="eyebrow">Post-change validator</div><h3>Live verification</h3><p class="muted">Re-read device configuration and health, check active configuration-failure alarms, and verify VC stability when applicable.</p><div id="valResult" class="validation-list"><div class="muted">Choose a switch and run validation.</div></div></section><section class="card content-card" data-ui="Change Verifier › Validation history"><div class="eyebrow">Recent reports</div><h3>Validation history</h3><div id="valReports" class="mini-list validator-reports"></div></section></div>
+      </section>
+
+      <section id="view-config-backup" class="tool-view hidden">
+        <section class="toolbar card compact-toolbar cb-toolbar"><div class="field"><label for="backupSite">Scope</label><select id="backupSite" data-site-picker><option value="">All sites (org-wide)</option></select></div><div id="cbLiveStatus" class="cb-live-status" aria-live="polite"></div><div class="cb-toolbar-actions"><button id="cbRefresh" type="button" class="btn secondary" title="Re-read the live configuration and compare it with the last snapshot">Check now</button><button id="backupCreate" type="button" class="btn primary" title="Capture the configuration in this scope now">Snapshot now</button></div></section>
+        <section class="cb-hero" data-ui="Config Backups › Safety net summary" aria-label="Configuration safety net summary"><article class="card cb-tile" id="cbTileCaptured"><span class="cb-tile-label">Last captured</span><strong class="cb-tile-value">—</strong><small class="cb-tile-sub"></small></article><article class="card cb-tile" id="cbTileChanged"><span class="cb-tile-label">Changed since</span><strong class="cb-tile-value">—</strong><small class="cb-tile-sub"></small></article><article class="card cb-tile" id="cbTileWho"><span class="cb-tile-label">Changed by</span><strong class="cb-tile-value">—</strong><small class="cb-tile-sub"></small></article><article class="card cb-tile" id="cbTileRollback"><span class="cb-tile-label">Can I roll back?</span><strong class="cb-tile-value">—</strong><small class="cb-tile-sub"></small></article></section>
+        <div class="cb-tabs" role="tablist" aria-label="Config Backups views"><button type="button" role="tab" class="cb-tab active" data-cb-tab="changes" aria-selected="true">What changed <span class="cb-tab-count" id="cbTabChangesCount"></span></button><button type="button" role="tab" class="cb-tab" data-cb-tab="timeline" aria-selected="false">Snapshots &amp; compare <span class="cb-tab-count" id="cbTabTimelineCount"></span></button><button type="button" role="tab" class="cb-tab" data-cb-tab="drift" aria-selected="false">Template drift <span class="cb-tab-count" id="cbTabDriftCount"></span></button><button type="button" role="tab" class="cb-tab" data-cb-tab="settings" aria-selected="false">Schedule &amp; retention</button></div>
+        <div class="cb-panel" data-cb-panel="changes"><div class="cb-changes-layout"><section class="card content-card" data-ui="Config Backups › Changed since last snapshot"><div class="section-heading compact"><div><div class="eyebrow" id="cbChangesEyebrow">Live configuration vs last snapshot</div><h3>Changed since last snapshot</h3></div><div class="cb-filter"><input id="cbChangeSearch" type="search" placeholder="Filter objects or settings…" aria-label="Filter changes"></div></div><div id="cbChangesNote" class="cb-note"></div><div id="cbChanges" class="cb-object-list"><div class="muted">Loading…</div></div></section><aside class="card content-card cb-audit-card" data-ui="Config Backups › Who changed it (audit log)"><div class="eyebrow" id="cbAuditEyebrow">Audit log</div><h3>Who changed it</h3><p class="muted cb-small">Configuration changes since the snapshot, newest first.</p><div id="cbAudit" class="cb-audit-list"></div></aside></div></div>
+        <div class="cb-panel hidden" data-cb-panel="timeline"><div class="cb-timeline-layout"><section class="card content-card" data-ui="Config Backups › Snapshot timeline"><div class="section-heading compact"><div><div class="eyebrow">Stored locally · redacted · compressed</div><h3>Snapshot timeline</h3></div><div class="cb-inline-actions"><button id="cbImport" type="button" class="btn secondary small" title="Import a NodeWatch snapshot (.zip or .json) to compare">Import…</button><input id="cbImportFile" type="file" accept=".zip,.json,application/json,application/zip" class="hidden"></div></div><p class="muted cb-small">Pick <b>A</b> and <b>B</b> to compare (B defaults to live Mist).</p><div id="cbTimeline" class="cb-timeline"></div></section><section class="card content-card" data-ui="Config Backups › Compare snapshots"><div class="section-heading compact"><div><div class="eyebrow" id="cbCompareEyebrow">Compare</div><h3 id="cbCompareTitle">Choose two points in time</h3></div><div class="cb-inline-actions"><button id="cbCompareRun" type="button" class="btn primary small" disabled>Compare</button></div></div><div id="cbCompareNote" class="cb-note"></div><div id="cbCompare" class="cb-object-list"><div class="muted">Select snapshot A in the timeline. B is live Mist unless you pick another snapshot.</div></div></section></div></div>
+        <div class="cb-panel hidden" data-cb-panel="drift"><section class="card content-card" data-ui="Config Backups › Template drift"><div class="section-heading compact"><div><div class="eyebrow" id="cbDriftEyebrow">Device vs template / profile</div><h3>Template drift</h3></div><button id="cbDriftRefresh" type="button" class="btn secondary small">Re-check</button></div><p class="muted cb-small">Devices that set their own value for something their switch template, site settings, WAN Edge template or device profile already defines. Device-specific settings (name, IPs, port assignments) are not counted.</p><div id="cbDrift" class="cb-object-list"></div></section></div>
+        <div class="cb-panel hidden" data-cb-panel="settings"><section class="card content-card" data-ui="Config Backups › Schedule &amp; retention"><div class="eyebrow">Automatic capture</div><h3>Schedule &amp; retention</h3><div class="cb-settings-grid"><label class="check-row"><input id="backupDaily" type="checkbox"> Scheduled snapshots of the whole org while NodeWatch is running</label><div class="field"><label for="cbInterval">Every</label><select id="cbInterval"><option value="6">6 hours</option><option value="12">12 hours</option><option value="24">24 hours</option><option value="48">2 days</option><option value="168">7 days</option></select></div><label class="check-row"><input id="cbPreChange" type="checkbox"> Snapshot automatically before NodeWatch writes to Mist</label><div class="field"><label for="backupRetention">Keep snapshots for</label><select id="backupRetention"><option value="7">7 days</option><option value="30">30 days</option><option value="90">90 days</option><option value="180">180 days</option><option value="365">1 year</option></select></div><div class="field"><label for="cbKeepMin">Always keep at least</label><select id="cbKeepMin"><option value="3">3 snapshots</option><option value="5">5 snapshots</option><option value="10">10 snapshots</option><option value="25">25 snapshots</option></select></div></div><div class="editor-actions left"><button id="backupPolicySave" type="button" class="btn primary">Save</button><span id="backupStatus" class="muted"></span></div><div id="cbScheduleInfo" class="cb-note"></div><div class="notice info cb-security-note">Secrets (PSKs, RADIUS secrets, passwords, SNMP communities, tokens) are never stored: each is replaced by a short fingerprint, so NodeWatch can tell you a secret changed without keeping it. On Windows snapshots are also encrypted to your Windows account. Pinned snapshots and the newest snapshot of every scope are never pruned.</div></section></div>
+      </section>
+
+      <section id="view-poe" class="tool-view hidden">
+        <section class="toolbar card compact-toolbar pg-toolbar"><div class="field"><label>Site</label><select id="poeSite" data-site-picker><option value="">All sites — org overview</option></select></div><div class="field grow"><label>Switch</label><select id="poeSwitch"><option value="">All switches — overview</option></select></div><button id="poeRefresh" class="btn secondary">Refresh</button><div id="poeRefreshMeta" class="poe-refresh-meta is-idle" aria-live="off"><span class="poe-refresh-dot" aria-hidden="true"></span><span id="poeCountdown" class="poe-countdown">Loading…</span><small id="poeUpdated" class="poe-updated"></small><small id="poeRefreshError" class="poe-refresh-error hidden" role="status">Refresh failed — retrying</small><button id="poeRefreshNow" type="button" class="link-btn poe-refresh-now" title="Fetch the latest PoE data now without clearing the page">Refresh now</button></div></section>
+        <section id="poeOverview" class="card content-card pg-overview" data-ui="Power Guard › PoE risk overview"><div class="poe-card-head"><div><div id="pgScope" class="eyebrow">PoE power safety · All sites</div><h3 id="pgTitle">Where PoE needs attention</h3><p class="muted pg-help">Switches are ranked by how much of their PoE budget is in use. Click any row to drill into that site or switch.</p></div></div><div id="pgWarnings"></div><div id="pgTiles" class="pg-tiles" role="group" aria-label="PoE risk counts — click a tile to filter"></div><div class="pg-body"><div class="pg-main"><section id="pgSitesBlock" class="pg-block" data-ui="Power Guard › Sites needing attention"><div class="pg-block-head"><h4>Sites needing attention</h4><small id="pgSitesCount" class="muted"></small></div><div class="table-wrap pg-table-wrap"><table class="pg-table pg-sites-table" data-nofilter><colgroup><col class="pg-col-site"><col class="pg-col-worst"><col class="pg-col-num"><col class="pg-col-draw"><col></colgroup><thead><tr><th>Site</th><th title="Highest PoE budget use of any switch at the site">Peak budget used</th><th>Switches</th><th>PoE draw</th><th>Open issues</th></tr></thead><tbody id="pgSites"></tbody></table></div><button id="pgSitesMore" type="button" class="link-btn pg-more hidden"></button></section><section class="pg-block" data-ui="Power Guard › Switches by PoE budget used"><div class="pg-block-head"><h4>Switches by PoE budget used</h4><small id="pgSwitchCount" class="muted"></small><button id="pgClearFilter" type="button" class="link-btn pg-clear hidden">Clear filter</button></div><div class="table-wrap pg-table-wrap"><table class="pg-table pg-switch-table"><thead><tr><th class="pg-col-switch">Switch</th><th class="pg-site-col pg-col-site2">Site</th><th class="pg-col-util">Budget used</th><th class="pg-col-draw" title="Current PoE draw / PoE budget">Draw / budget</th><th class="pg-col-num" title="Powered ports">Ports</th><th>Issues</th></tr></thead><tbody id="pgSwitches"></tbody></table></div><button id="pgSwitchesMore" type="button" class="link-btn pg-more hidden"></button></section></div><aside class="pg-side"><section class="pg-block" data-ui="Power Guard › Open PoE issues"><div class="pg-block-head"><h4>Open PoE issues</h4><small id="pgIssueCount" class="muted"></small></div><div id="pgIssues" class="pg-issue-list pg-scroll"></div></section><section class="pg-block" data-ui="Power Guard › Top power-drawing ports"><div class="pg-block-head"><h4>Top power-drawing ports</h4></div><div id="pgTopPorts" class="pg-port-list"></div></section></aside></div></section>
+        <div class="poe-layout hidden">
+          <section class="card content-card poe-capacity-card" data-ui="Power Guard › Capacity &amp; risk"><div class="poe-card-head"><div><div class="eyebrow">PoE power safety</div><h3>Capacity & risk</h3></div><button id="poeBackOverview" type="button" class="link-btn pg-back" title="Back to the PoE overview for this site">← Site PoE overview</button></div><div class="poe-capacity-body"><div id="poeSummary"></div><div id="poeRisks" class="finding-list"></div></div></section>
+          <section class="card content-card poe-ports-card" data-ui="Power Guard › Per-port draw"><div class="poe-card-head"><div><div class="eyebrow">Powered endpoints</div><h3>Per-port draw</h3></div><small id="poePortCount" class="muted poe-port-count"></small></div><div class="compact-filterbar"><input id="poeSearch" type="search" placeholder="Search port, device, MAC, IP..."><select id="poeModeFilter"><option value="">All PoE modes</option><option value="af">802.3af</option><option value="at">802.3at</option><option value="bt">802.3bt</option></select><label class="check-row"><input id="poeHighDraw" type="checkbox"> High draw (≥ 15 W)</label><select id="poeSort"><option value="port">Sort: Port</option><option value="draw_desc">Draw high → low</option><option value="draw_asc">Draw low → high</option></select><small class="muted poe-row-hint">Click a port for full details</small></div><div id="poePortsWrap" class="table-wrap poe-ports-wrap"><table class="poe-port-table"><colgroup><col class="poe-col-port"><col class="poe-col-draw"><col class="poe-col-mode"><col class="poe-col-prio"><col class="poe-col-link"><col class="poe-col-device"><col class="poe-col-mac"><col class="poe-col-ip"></colgroup><thead><tr><th>Port</th><th>Current draw</th><th>Mode</th><th>Priority</th><th>Link</th><th>Connected device</th><th>MAC</th><th>IP / VLAN</th></tr></thead><tbody id="poePorts"></tbody></table></div></section>
+        </div>
+      </section>
+
+      <section id="view-security" class="tool-view hidden">
+        <div id="socRoot" class="soc" data-ui="Security Operations"></div>
+      </section>
+
+      <section id="view-siem" class="tool-view hidden">
+        <section class="card content-card" data-ui="Event Relay › Normalized event stream"><div class="section-heading compact"><div><div class="eyebrow">Event relay</div><h3>Normalized event stream</h3></div><span id="siemCount" class="count"></span></div><p class="muted">Normalizes active alarms, device events, and audit activity into a consistent schema. Export manually, or configure automatic forwarding while NodeWatch is running. Click a row for full event details. Left edge colour: red = deleted, green = committed/added, yellow = no change.</p><div class="editor-actions left"><button id="siemRefresh" class="btn secondary">Refresh</button><button id="siemJson" class="btn primary">Export JSONL</button><button id="siemCef" class="btn secondary">Export CEF</button></div><div class="compact-filterbar"><input id="siemSearch" type="search" placeholder="Search events, site, source, message..."><select id="siemSeverity"><option value="">All severities</option><option value="critical">Critical</option><option value="warning">Warning</option><option value="info">Info</option></select><select id="siemChangeType"><option value="">All change types</option><option value="deleted">Deleted / removed</option><option value="committed">Committed / changed</option><option value="neutral">No classified change</option></select><select id="siemSort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="severity">Severity</option><option value="source">Source</option></select></div><div class="table-wrap siem-table"><table><thead><tr><th>Time</th><th>Severity</th><th>Source</th><th>Type</th><th>Site</th><th>Message</th></tr></thead><tbody id="siemRows"></tbody></table></div></section>
+        <section class="card content-card top-gap" data-ui="Event Relay › SIEM destination"><div class="section-heading compact"><div><div class="eyebrow">Auto forward</div><h3>SIEM destination</h3></div><span id="siemForwardStatus" class="count">Disabled</span></div><p class="muted">Choose Splunk HEC or CEF-over-syslog. Secrets are not written into normal application settings. Automatic forwarding runs only while this application is running.</p><div class="siem-config-grid"><div class="field"><label>Destination</label><select id="siemProvider"><option value="splunk_hec">Splunk HEC</option><option value="syslog_cef">CEF / Syslog (UDP/TCP, no TLS)</option></select></div><div class="field"><label>Forward every</label><select id="siemInterval"><option value="30">30 seconds</option><option value="60" selected>60 seconds</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select></div><label class="siem-enable"><input id="siemEnabled" type="checkbox"> Auto-forward new events</label></div><div id="siemSplunkFields" class="siem-config-grid top-gap"><div id="siemEndpointHint" class="notice info siem-span-2">Use the actual Splunk HEC input endpoint, not the Splunk Web login URL. NodeWatch verifies HEC with a real test event.</div><div class="field siem-span-2"><label>Splunk HEC URL</label><input id="siemSplunkUrl" placeholder="https://splunk.example.com:8088"></div><div class="field"><label>HEC token</label><input id="siemSplunkToken" type="password" placeholder="Leave blank to keep saved token"></div><div class="field"><label>Index (optional)</label><input id="siemSplunkIndex" placeholder="network"></div><div class="field"><label>Sourcetype</label><input id="siemSplunkSourceType" value="nodewatch:network:events"></div><div class="field"><label>Proxy (optional)</label><input id="siemProxy" placeholder="http://proxy.example.com:8080" autocomplete="off"></div><label class="siem-enable"><input id="siemVerifyTls" type="checkbox" checked> Verify TLS certificate</label></div><div id="siemSyslogFields" class="siem-config-grid top-gap hidden"><div class="field"><label>Syslog host</label><input id="siemSyslogHost" placeholder="siem.example.local"></div><div class="field"><label>Port</label><input id="siemSyslogPort" type="number" value="514" min="1" max="65535"></div><div class="field"><label>Protocol</label><select id="siemSyslogProtocol"><option value="udp">UDP</option><option value="tcp">TCP</option></select></div></div><div class="editor-actions left"><button id="siemSaveForwarder" class="btn primary">Save Destination</button><button id="siemTestForwarder" class="btn secondary">Send Test Event</button><button id="siemRunForwarder" class="btn ghost">Forward Now</button><button id="siemDiagnose" class="btn ghost" title="Checks DNS, proxy, firewall, TLS, HEC health and the token step by step. Sends no events.">Diagnose connection</button><span id="siemForwardMessage" class="muted"></span></div><div id="siemDiagResult" class="siem-diag hidden" aria-live="polite"></div></section>
+      </section>
+
+      <section id="view-ai-engineer" class="tool-view hidden">
+        <section class="card content-card ai-shell" data-ui="Operations Assistant › Read-only network investigation">
+          <div class="ai-head"><div><div class="eyebrow">Operations assistant</div><h3>Ask your network</h3><p class="muted">Type or speak a question and get a short answer with links to the right page: what's broken, how a site is doing, what's down, where a device or client is connected, PoE and ports on a switch, virtual chassis problems, and what changed. Answers are worked out on this PC from your live Mist data, are read-only, and no network data is sent to an AI service.</p></div><div class="ai-head-actions"><button id="aiMarvis" class="btn ghost small" type="button" title="Opens the Mist portal in your browser, where you can ask Marvis">Open Mist (Marvis)</button><button id="aiClear" class="btn ghost small" type="button">Clear chat</button></div></div>
+          <div id="aiThread" class="ai-thread" role="log" aria-live="polite" aria-label="Assistant conversation"></div>
+          <div id="aiVoiceNotice" class="notice info ai-voice-notice hidden" role="note"><strong>About voice input.</strong> In Microsoft Edge and Google Chrome, the browser turns your speech into text using its online speech service. Only the audio of the question you speak leaves this PC; your network data never does. Answers read aloud use voices installed on this PC. <button id="aiVoiceNoticeOk" class="btn secondary small" type="button">Got it</button></div>
+          <div class="ai-composer"><textarea id="aiQuestion" rows="2" aria-label="Question" placeholder="Ask: What's broken? · How is Dallas? · Is SW-CORE-01 up? · Where is aa:bb:cc:dd:ee:ff?"></textarea><button id="aiMic" class="btn secondary ai-mic hidden" type="button" aria-pressed="false" title="Hold to talk, or click to start and stop">🎤 <span>Speak</span></button><button id="aiAsk" class="btn primary" type="button">Ask</button></div>
+          <div class="ai-composer-foot"><label class="check-row hidden" id="aiSpeakRow"><input id="aiSpeak" type="checkbox"> Read answers aloud</label><span id="aiVoiceState" class="muted"></span><span class="muted ai-keys">Enter to send · Shift+Enter for a new line</span></div>
+        </section>
+      </section>
+
+      <section id="view-inventory" class="tool-view hidden">
+        <div class="card content-card" data-ui="Asset Library › Asset Library">
+          <div class="section-heading compact"><div><div class="eyebrow">Discovery</div><h3>Asset Library</h3></div><button id="inventoryRefresh" class="btn secondary">Refresh</button></div>
+          <p class="muted">Live switch inventory, including VC membership, used by VC replacement/add operations and future tools.</p><div class="compact-filterbar"><input id="inventorySearch" type="search" placeholder="Search MAC, serial, model, site, status..."><select id="inventorySort"><option value="site">Sort: Site</option><option value="model">Model</option><option value="status">Status</option><option value="mac">MAC</option><option value="serial">Serial</option></select></div>
+          <div class="table-wrap"><table><thead><tr><th>MAC</th><th>Serial</th><th>Model</th><th>Status</th><th>Site</th></tr></thead><tbody id="inventoryRows"></tbody></table></div>
+        </div>
+      </section>
+
+      <section id="view-history" class="tool-view hidden">
+        <section class="toolbar card audit-toolbar">
+          <div class="field"><label for="auditDuration">Audit range</label><select id="auditDuration"><option value="1h">Last 60 minutes</option><option value="1d">Last 24 hours</option><option value="7d" selected>Last 7 days</option><option value="30d">Last 30 days</option></select></div>
+          <div class="field grow"><label>Search activity</label><input id="auditSearch" type="search" placeholder="Admin, site, action, device..."></div><div class="field"><label>Sort</label><select id="auditSort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="admin">Admin / tool</option><option value="site">Site</option></select></div><button id="auditRefresh" class="btn secondary">Refresh Activity</button>
+        </section>
+        <div id="auditWarning" class="source-banner warning hidden"></div>
+        <section class="card content-card" data-ui="Activity Log › Provider Audit Activity">
+          <div class="section-heading compact"><div><div class="eyebrow">Provider activity</div><h3>Provider Audit Activity</h3></div><span id="mistAuditCount" class="count"></span></div>
+          <p class="muted">Who accessed or changed your connected network systems, when it happened, and what each system recorded. Click a row to see exactly what was changed.</p>
+          <div class="table-wrap"><table><thead><tr><th>Time</th><th>Who</th><th>Action</th><th>What</th><th>Site</th><th>Source IP</th></tr></thead><tbody id="mistAuditRows"></tbody></table></div>
+        </section>
+        <section class="card content-card top-gap" data-ui="Activity Log › Local Tool Changes">
+          <div class="section-heading compact"><div><div class="eyebrow">This application</div><h3>Local Tool Changes</h3></div><span id="localAuditCount" class="count"></span></div>
+          <p class="muted">Every configuration change NodeWatch made: what was requested, whether Mist confirmed it, and what changed. Click a row for the before → after comparison.</p>
+          <div class="table-wrap"><table><thead><tr><th>Time</th><th>Tool</th><th>Target</th><th>Result</th></tr></thead><tbody id="localAuditRows"></tbody></table></div>
+        </section>
+      </section>
+
+
+      <section id="view-settings" class="tool-view hidden">
+        <nav class="settings-tabs" role="tablist" aria-label="Settings sections" data-ui="Settings &amp; Support › Sections">
+          <button type="button" role="tab" data-settings-tab="connections" aria-selected="true"><span class="settings-tab-icon" aria-hidden="true">⇄</span><span><strong>Connections</strong><small>Products and APIs NodeWatch reads from</small></span></button>
+          <button type="button" role="tab" data-settings-tab="appearance" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">◐</span><span><strong>Appearance</strong><small>Theme, night mode, text size, layout</small></span></button>
+          <button type="button" role="tab" data-settings-tab="team" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">☰</span><span><strong>Team</strong><small>Shared triage for your team</small></span></button>
+          <button type="button" role="tab" data-settings-tab="support" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">?</span><span><strong>Support &amp; data</strong><small>Diagnostics, storage, version</small></span></button>
+        </nav>
+        <div class="settings-layout">
+          <section class="card content-card settings-start" data-settings-tab="connections" data-ui="Settings &amp; Support › Get connected">
+            <div class="section-heading compact"><div><div class="eyebrow">Get connected</div><h3>Connect a product in three steps</h3></div></div>
+            <ol class="settings-steps">
+              <li><b>1</b><span><strong>Add connection</strong> and pick your product (Mist, EdgeConnect, Panorama, FortiGate, SNMP …).</span></li>
+              <li><b>2</b><span><strong>Follow the guide.</strong> It shows where to create a read-only account or API key in that product.</span></li>
+              <li><b>3</b><span><strong>Test and save.</strong> NodeWatch checks exactly what it can read and shows where the data appears.</span></li>
+            </ol>
+            <div class="editor-actions left"><button id="settingsStartAdd" type="button" class="btn primary">+ Add connection</button></div>
+          </section>
+          <section class="card content-card appearance-card" data-settings-tab="appearance" data-ui="Settings &amp; Support › Appearance">
+            <div class="section-heading compact"><div><div class="eyebrow">Appearance</div><h3>Look &amp; layout</h3></div><span id="appearanceState" class="count"></span></div>
+            <h4 class="appearance-subhead" id="themeHeading">Colour theme</h4>
+            <p class="muted">Colours, fonts and card style. Saved on this computer and applied immediately. Add <code>?theme=&lt;name&gt;</code> to the address to preview one without saving.</p>
+            <div id="themeChoices" class="theme-choices" role="radiogroup" aria-labelledby="themeHeading"></div>
+            <div class="appearance-row" data-ui="Settings &amp; Support › Night mode">
+              <span class="appearance-row-label" id="nightModeLabel">Night mode</span>
+              <div class="seg-control" role="radiogroup" aria-labelledby="nightModeLabel" id="nightChoices">
+                <button type="button" role="radio" data-night="off" aria-checked="false">Off</button>
+                <button type="button" role="radio" data-night="on" aria-checked="false">On</button>
+                <button type="button" role="radio" data-night="system" aria-checked="false">Match Windows</button>
+              </div>
+              <small class="muted" id="nightNote"></small>
+            </div>
+            <div class="appearance-row" data-ui="Settings &amp; Support › Text size">
+              <span class="appearance-row-label" id="textSizeLabel">Text size</span>
+              <div class="seg-control" role="radiogroup" aria-labelledby="textSizeLabel" id="textSizeChoices"><button type="button" role="radio" data-lset="text" data-value="s" aria-checked="false">Small</button><button type="button" role="radio" data-lset="text" data-value="m" aria-checked="false">Default</button><button type="button" role="radio" data-lset="text" data-value="l" aria-checked="false">Large</button><button type="button" role="radio" data-lset="text" data-value="xl" aria-checked="false">Extra large</button></div>
+              <small class="muted">Scales every page, menu and table.</small>
+            </div>
+            <div class="layout-heading-row">
+              <h4 class="appearance-subhead" id="layoutHeading">Page layout</h4>
+              <span id="layoutState" class="count"></span>
+              <button id="layoutReset" class="btn ghost small" type="button">Reset to default</button>
+            </div>
+            <p class="muted">Where the menu sits and how much fits on screen. Works with every colour theme; applies instantly and is saved on this computer.</p>
+            <div id="layoutChoices" class="layout-choices" role="radiogroup" aria-labelledby="layoutHeading" data-ui="Settings &amp; Support › Page layout"></div>
+            <div id="layoutCustom" class="layout-custom" data-ui="Settings &amp; Support › Custom layout">
+              <div class="layout-custom-head"><strong>Fine-tune</strong><small class="muted">Changing anything here switches to Custom.</small></div>
+              <div class="layout-tune-row"><span class="appearance-row-label" id="lset-position">Menu</span><div class="seg-control" role="radiogroup" aria-labelledby="lset-position"><button type="button" role="radio" data-lset="position" data-value="side" aria-checked="false">Left</button><button type="button" role="radio" data-lset="position" data-value="top" aria-checked="false">Top</button><button type="button" role="radio" data-lset="position" data-value="icons" aria-checked="false">Icons only</button></div></div>
+              <div class="layout-tune-row"><span class="appearance-row-label" id="lset-density">Density</span><div class="seg-control" role="radiogroup" aria-labelledby="lset-density"><button type="button" role="radio" data-lset="density" data-value="comfortable" aria-checked="false">Comfortable</button><button type="button" role="radio" data-lset="density" data-value="compact" aria-checked="false">Compact</button></div></div>
+              <div class="layout-tune-row"><span class="appearance-row-label" id="lset-width">Content width</span><div class="seg-control" role="radiogroup" aria-labelledby="lset-width"><button type="button" role="radio" data-lset="width" data-value="fixed" aria-checked="false">Fixed</button><button type="button" role="radio" data-lset="width" data-value="full" aria-checked="false">Full width</button></div></div>
+              <div class="layout-tune-row"><span class="appearance-row-label" id="lset-radius">Corners</span><div class="seg-control" role="radiogroup" aria-labelledby="lset-radius"><button type="button" role="radio" data-lset="radius" data-value="theme" aria-checked="false">Theme</button><button type="button" role="radio" data-lset="radius" data-value="square" aria-checked="false">Square</button><button type="button" role="radio" data-lset="radius" data-value="subtle" aria-checked="false">Subtle</button><button type="button" role="radio" data-lset="radius" data-value="rounded" aria-checked="false">Rounded</button><button type="button" role="radio" data-lset="radius" data-value="round" aria-checked="false">Round</button></div></div>
+              <div class="layout-tune-row"><span class="appearance-row-label" id="lset-glass">Glass &amp; blur</span><div class="seg-control" role="radiogroup" aria-labelledby="lset-glass"><button type="button" role="radio" data-lset="glass" data-value="on" aria-checked="false">On</button><button type="button" role="radio" data-lset="glass" data-value="off" aria-checked="false">Off</button></div></div>
+              <div class="layout-tune-row"><span class="appearance-row-label" id="lset-shadows">Card shadows</span><div class="seg-control" role="radiogroup" aria-labelledby="lset-shadows"><button type="button" role="radio" data-lset="shadows" data-value="on" aria-checked="false">On</button><button type="button" role="radio" data-lset="shadows" data-value="off" aria-checked="false">Off</button></div></div>
+            </div>
+            <label class="check-row"><input id="uiLabelsToggle" type="checkbox"> Show screen-area names (for describing changes)</label>
+          </section>
+          <section class="card content-card" data-settings-tab="connections" data-settings-order="3" data-ui="Settings &amp; Support › Mist Connection">
+            <div class="section-heading compact"><div><div class="eyebrow">Juniper Mist</div><h3>Mist cloud</h3></div><span id="settingsState" class="count">Not configured</span></div>
+            <p class="muted">Switches, access points and WAN edges managed in Mist. Enter your organization ID and an API token (Mist › Organization › Settings › API Token, read-only is enough for everything except Port Toolkit and Chassis Manager changes). The token is kept in <span data-credstore>Windows Credential Manager</span>, never in the application folder.</p>
+            <div class="settings-form">
+              <label>Mist API Host<input id="settingsHost" type="url" value="https://api.mist.com" autocomplete="off" spellcheck="false"></label>
+              <label>Organization ID<input id="settingsOrg" type="text" autocomplete="off" spellcheck="false"></label>
+              <label>API Token<input id="settingsToken" type="password" autocomplete="new-password" placeholder="Enter token on first setup or to replace it"></label>
+              <label class="check-row"><input id="settingsTls" type="checkbox" checked> Verify TLS certificates <span class="muted">(recommended)</span></label>
+            </div>
+            <div id="settingsResult" class="notice info hidden"></div>
+            <div class="editor-actions"><button id="settingsTest" class="btn secondary">Test Connection</button><button id="settingsSave" class="btn primary">Save & Connect</button></div>
+          </section>
+          <section class="card content-card integration-card palo-integration-family" data-settings-tab="connections" data-settings-order="4" data-ui="Settings &amp; Support › Security &amp; Logging Integrations">
+            <div class="section-heading compact"><div><div class="eyebrow">Palo Alto Networks</div><h3>Device intelligence and traffic logs</h3></div><span class="count">Read only</span></div>
+            <p class="muted">NodeWatch uses your Palo Alto Common Services service account for SCM and Strata Logging Service access while keeping each API capability read only.</p>
+            <div class="palo-integration-grid">
+              <div class="integration-subcard" data-ui="Settings &amp; Support › Device Intelligence">
+                <div class="section-heading compact"><div><div class="eyebrow">Common Services</div><h4>Device Intelligence</h4></div><span id="paDsState" class="count">Not configured</span></div>
+                <p class="muted">Read-only enrichment for IP↔MAC resolution, device identity, classification, risk, and endpoint posture.</p>
+                <div class="settings-form">
+                  <label>Client ID<input id="paDsClientId" type="password" autocomplete="new-password" placeholder="Enter Client ID"></label>
+                  <label>TSG ID<input id="paDsTsgId" type="password" autocomplete="new-password" placeholder="Enter TSG ID"></label>
+                  <label>Client Secret<input id="paDsSecret" type="password" autocomplete="new-password" placeholder="Enter Client Secret"></label>
+                  <label class="check-row"><input id="paDsEnabled" type="checkbox"> Enable device intelligence in Device Finder</label>
+                </div>
+                <div class="notice info">Common Services OAuth credentials are kept in Windows Credential Manager. Short-lived access tokens stay in process memory only.</div>
+                <div id="paDsResult" class="notice info hidden"></div>
+                <div class="editor-actions"><button id="paDsTest" class="btn secondary" type="button">Test Connection</button><button id="paDsSave" class="btn primary" type="button">Save Integration</button><button id="paDsReset" class="btn ghost" type="button">Reset</button></div>
+              </div>
+              <div class="integration-subcard" data-ui="Settings &amp; Support › Traffic &amp; Sessions">
+                <div class="section-heading compact"><div><div class="eyebrow">Strata Logging Service</div><h4>Traffic &amp; Sessions</h4></div><span id="slsState" class="count">Not configured</span></div>
+                <p class="muted">Traffic &amp; Sessions uses the same Palo Alto Common Services service account configured above: <strong>Client ID + Client Secret + TSG ID</strong>. NodeWatch exchanges those credentials for a short-lived OAuth token, then queries firewall traffic logs through the Strata Cloud Manager Log Viewer API.</p>
+                <div class="settings-form">
+                  <label>Log query host (region)<input id="slsQueryHost" type="text" autocomplete="off" spellcheck="false" placeholder="https://pa-us01.api.prismaaccess.com"></label>
+                  <label>Prisma-Tenant override <span class="muted">(optional)</span><input id="slsTenant" type="text" autocomplete="off" spellcheck="false" inputmode="numeric" placeholder="Leave blank to use the TSG ID"></label>
+                  <label class="check-row"><input id="slsEnabled" type="checkbox"> Enable Strata Traffic &amp; Sessions in Device Finder</label>
+                </div>
+                <div class="notice info">The log query host is the regional host Strata Cloud Manager uses for Log Viewer. To find yours, open Log Viewer, press F12, and look at the host of the <strong>logviewer/firewall_traffic</strong> request. Turning this on immediately runs one real read-only traffic query, and NodeWatch saves the integration only if that query succeeds. If Palo Alto refuses the query, the exact response is shown here.</div>
+                <div id="slsResult" class="notice info hidden"></div>
+                <div class="editor-actions"><button id="slsTest" class="btn secondary" type="button">Verify Again</button><button id="slsReset" class="btn ghost" type="button">Reset</button></div>
+              </div>
+            </div>
+          </section>
+          <section class="card content-card conn-card" id="connectionsCard" data-settings-tab="connections" data-settings-order="2" data-ui="Settings &amp; Support › Connections">
+            <div class="section-heading compact"><div><div class="eyebrow">Vendors &amp; APIs</div><h3>Connections</h3></div><div class="conn-heading-actions"><span id="connSummary" class="count">Loading…</span><button id="connAdd" type="button" class="btn primary" data-ui="Settings &amp; Support › Connections › Add connection">+ Add connection</button></div></div>
+            <p class="muted conn-intro">Every product NodeWatch can read from. Each one is connected once with a read-only account; secrets stay in <span data-credstore>Windows Credential Manager</span> and are never shown again.</p>
+            <div id="connCapabilities" class="conn-capstrip" data-ui="Settings &amp; Support › Connections › Data available now"></div>
+            <div id="connGroups" class="conn-groups"></div>
+          </section>
+          <section class="card content-card tt-card" id="teamTriageCard" data-settings-tab="team" data-ui="Settings &amp; Support › Team triage">
+            <div class="section-heading compact"><div><div class="eyebrow">Command Center</div><h3>Team triage</h3></div><span id="ttState" class="count">Loading…</span></div>
+            <p class="muted">Where acknowledgements, snoozes, dismissals, mutes, notes and assignments are kept. Keep them on this PC, or share them through a shared folder so everyone on the team sees who is handling what.</p>
+            <div id="ttBody" class="tt-body"></div>
+          </section>
+          <section class="card content-card" data-settings-tab="support" data-settings-order="2" data-ui="Settings &amp; Support › Upgrade-safe storage">
+            <div class="eyebrow">Persistent data</div><h3>Upgrade-safe storage</h3>
+            <p class="muted">New application revisions use the same Windows user-data folder, so settings, audit records, dismissals, and diagnostics survive upgrades automatically.</p>
+            <dl class="settings-info"><dt>Settings</dt><dd id="settingsDataPath">%LOCALAPPDATA%\NodeWatch</dd><dt>API Token</dt><dd id="settingsCredentialStore">Windows Credential Manager</dd><dt>Application folder</dt><dd>Replaceable on every upgrade</dd></dl>
+            <div class="editor-actions"><button id="settingsOpenData" class="btn secondary">Open Data Folder</button><button id="settingsReset" class="btn ghost">Reset Connection</button></div>
+          </section>
+          <section class="card content-card owner-access-card" data-settings-tab="support" data-settings-order="3" data-ui="Settings &amp; Support › Platform Overview Lock">
+            <div class="section-heading compact"><div><div class="eyebrow">Owner access</div><h3>Platform Overview Lock</h3></div><span id="platformLockState" class="count">Checking…</span></div>
+            <p class="muted">Platform Overview is pre-enrolled with an owner access key that is not included in distributed copies. Testers cannot create or reset the owner credential from the application. Rotation requires the current owner key.</p>
+            <div class="owner-pin-grid"><label>Current owner key <input id="platformCurrentPin" type="password" autocomplete="off" placeholder="Required to rotate the key"></label><label>New owner key <input id="platformNewPin" type="password" autocomplete="new-password" placeholder="16–128 characters"></label><label>Confirm new key <input id="platformConfirmPin" type="password" autocomplete="new-password"></label></div>
+            <div class="editor-actions left"><button id="platformPinSave" class="btn secondary" type="button">Rotate Owner Key</button></div>
+          </section>
+          <section class="card content-card" data-settings-tab="support" data-settings-order="1" data-ui="Settings &amp; Support › Simple support workflow">
+            <div class="eyebrow">Support</div><h3>Simple support workflow</h3>
+            <p class="muted">If something is slow or fails, use the diagnostics files in the persistent data folder. They contain sanitized API timing and local application records. Integration credentials, access tokens, and authorization headers are excluded.</p>
+            <div class="notice info">Normal use should require only one launcher: <strong>NodeWatch</strong>. There is no .env file to edit and no setup script to rerun after upgrades.</div><dl class="settings-info"><dt>Running version</dt><dd><strong>v{{ app_version }}</strong> · {{ app_build }}</dd></dl><div class="editor-actions"><button id="settingsExportDiagnostics" class="btn secondary">Export Diagnostics</button><button id="settingsExitApp" class="btn ghost" type="button" title="Not needed normally: NodeWatch stops by itself when its last tab is closed">Exit NodeWatch now</button></div><p class="muted">NodeWatch closes itself about a minute after you close its last window or tab, so nothing is left running. Reloading a page or opening NodeWatch in another tab keeps it open.</p><label class="check-row" data-ui="Settings &amp; Support › Keep running"><input id="settingsKeepRunning" type="checkbox"> Keep NodeWatch running when its window is closed</label><p id="settingsKeepRunningHint" class="muted">When on, background alerting and forwarding continue after you close the window; use “Exit NodeWatch now” to stop it.</p>
+          </section>
+        </div>
+      </section>
+
+      <section id="view-future-tools" class="tool-view hidden">
+        <div id="platformOverviewContent"><div class="card content-card" data-ui="Platform Overview › Content"><div class="eyebrow">Owner access</div><h3>Loading protected platform information…</h3></div></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="attnDrawerBackdrop" class="attn-drawer-backdrop hidden"></div>
+  <aside id="attnDrawer" class="attn-drawer hidden" role="dialog" aria-modal="false" aria-labelledby="attnDrawerTitle" data-ui="Command Center › Incident details" tabindex="-1">
+    <header class="attn-drawer-head"><div class="attn-drawer-headcopy"><div id="attnDrawerMeta" class="attn-drawer-meta"></div><h3 id="attnDrawerTitle">Incident</h3><div id="attnDrawerPos" class="muted attn-drawer-pos"></div></div><div class="attn-drawer-nav"><button id="attnDrawerPrev" type="button" class="icon-btn" title="Previous incident (↑)" aria-label="Previous incident">↑</button><button id="attnDrawerNext" type="button" class="icon-btn" title="Next incident (↓)" aria-label="Next incident">↓</button><button id="attnDrawerClose" type="button" class="icon-btn" title="Close (Esc)" aria-label="Close">×</button></div></header>
+    <div id="attnDrawerActions" class="attn-drawer-actions"></div>
+    <div id="attnDrawerBody" class="attn-drawer-body"></div>
+  </aside>
+  <div id="attnPopover" class="attn-popover hidden" role="menu"></div>
+  <div id="attnToasts" class="attn-toasts" aria-live="polite"></div>
+  <dialog id="attnAckDialog" class="dialog"><form method="dialog"><div class="dialog-head"><div><div class="eyebrow">Write to the source system</div><h3 id="attnAckTitle">Acknowledge alerts</h3></div><button class="icon-btn" value="cancel" aria-label="Cancel">×</button></div><p id="attnAckText" class="muted"></p><label class="field" for="attnAckNote"><span>Note saved with the acknowledgement</span><input id="attnAckNote" maxlength="500" value="Acknowledged from NodeWatch Command Center" /></label><div class="dialog-actions"><button value="cancel" class="btn ghost">Cancel</button><button id="attnAckLocal" type="button" class="btn ghost">Only in NodeWatch</button><button id="attnAckConfirm" type="button" class="btn primary">Acknowledge in source</button></div></form></dialog>
+
+  <dialog id="opsPortDialog" class="dialog wide"><form method="dialog"><div class="dialog-head"><div><div class="eyebrow">Port details</div><h3 id="opsPortDialogTitle">Port</h3></div><button class="icon-btn" value="cancel" aria-label="Close">×</button></div><div id="opsPortDialogBody" class="ops-port-detail"></div><div class="dialog-actions"><button class="btn primary">Close</button></div></form></dialog>
+  <dialog id="tlDetailDialog" class="dialog wide"><form method="dialog"><div class="dialog-head"><div><div class="eyebrow">Traffic log entry</div><h3 id="tlDetailTitle"></h3></div><button class="icon-btn" value="cancel" aria-label="Close">×</button></div><div id="tlDetailBody" class="detail-grid tl-detail-grid"></div><div class="dialog-actions"><button class="btn primary">Close</button></div></form></dialog>
+
+  <dialog id="nocListDialog" class="dialog wide"><form method="dialog"><div class="dialog-head"><div><div class="eyebrow">Disconnect Watch</div><h3 id="nocListTitle"></h3></div><button class="icon-btn" value="cancel" aria-label="Close">×</button></div><p class="muted" id="nocListHelp"></p><div id="nocListBody" class="noc-list"></div><div class="dialog-actions"><button class="btn primary">Close</button></div></form></dialog>
+
+  <dialog id="knownDownDialog" class="dialog"><form method="dialog"><div class="dialog-head"><div><div class="eyebrow">Local disconnect filter</div><h3>Known Down Devices</h3></div><button class="icon-btn" value="cancel">×</button></div><p class="muted">Known-down devices stay out of Disconnect Watch and local disconnect notifications until restored. Network state is not changed.</p><div id="knownDownList" class="dismissed-list"></div><div class="dialog-actions"><button id="restoreAllKnownDown" type="button" class="btn ghost hidden">Restore All</button><button class="btn primary">Done</button></div></form></dialog>
+
+  <dialog id="platformLockDialog" class="dialog platform-lock-dialog"><form><div class="dialog-head"><div><div class="eyebrow">Owner access</div><h3>Platform Overview Locked</h3></div><button id="platformLockClose" type="button" class="icon-btn" aria-label="Close">×</button></div><p id="platformLockNote" class="muted">Enter the owner access key to continue.</p><label class="platform-pin-field">Owner access key<input id="platformUnlockPin" type="password" autocomplete="off"></label><div class="dialog-actions"><button id="platformLockCancel" type="button" class="btn ghost">Cancel</button><button id="platformUnlockBtn" type="button" class="btn primary">Unlock</button></div></form></dialog>
+
+  <dialog id="auditDetailDialog" class="dialog wide"><form method="dialog"><div class="dialog-head"><div><div class="eyebrow">Audit details</div><h3 id="auditDetailTitle">Audit Record</h3></div><button class="icon-btn">×</button></div><div id="auditDetailBody" class="nw-detail"></div><div class="dialog-actions"><button class="btn primary">Close</button></div></form></dialog>
+
+  <dialog id="siemEventDialog" class="dialog wide"><form method="dialog"><div class="dialog-head"><div><div class="eyebrow">Event relay · event details</div><h3 id="siemEventTitle">Event</h3></div><button class="icon-btn" aria-label="Close">×</button></div><div id="siemEventBody" class="nw-detail"></div><div class="dialog-actions"><button class="btn primary">Close</button></div></form></dialog>
+
+  <dialog id="memberDialog" class="dialog"><form method="dialog" id="memberForm"><div class="dialog-head"><div><div class="eyebrow" id="dialogEyebrow">Member</div><h3 id="dialogTitle"></h3></div><button type="button" id="memberDialogClose" class="icon-btn" aria-label="Close">×</button></div><div id="dialogBody"></div><div class="dialog-actions"><button type="button" id="memberDialogCancel" class="btn ghost">Cancel</button><button type="submit" id="dialogSave" value="save" class="btn primary">Save</button></div></form></dialog>
+
+  <dialog id="previewDialog" class="dialog wide"><form method="dialog"><div class="dialog-head"><div><div class="eyebrow">Preview changes</div><h3 id="previewTitle"></h3></div><button class="icon-btn">×</button></div><div class="preview-layout"><div><h4>Member comparison</h4><div id="diffList"></div></div><aside><h4>Safety Review</h4><div id="validationList"></div><div class="notice warning">Renumbering members can affect port references tied to FPC/member numbering. Review every red/green change before applying.</div><label class="apply-confirm"><input id="applyConfirm" type="checkbox"> I reviewed the proposed VC change, including any warnings, and want to enable Apply.</label><div id="applyEligibility" class="apply-eligibility"></div></aside></div><div class="dialog-actions"><button type="button" id="previewBack" class="btn ghost">Back to Editing</button><button id="applyBtn" type="button" class="btn danger" disabled>Apply to Mist</button></div></form></dialog>
+
+  <dialog id="resultDialog" class="dialog"><form method="dialog"><div class="dialog-head"><div><div class="eyebrow">Result</div><h3 id="resultTitle">Change Result</h3></div><button class="icon-btn">×</button></div><div id="resultBody"></div><div class="dialog-actions"><button class="btn primary">Done</button></div></form></dialog>
+
+  <script src="/static/core.js?v={{ app_version }}"></script>
+  <script src="/static/table-tools.js?v={{ app_version }}"></script>
+  <script src="/static/site-picker.js?v={{ app_version }}"></script>
+  <script src="/static/traffic-log.js?v={{ app_version }}"></script>
+  <script src="/static/modules/alerting.js?v={{ app_version }}"></script>
+  <script src="/static/modules/dashboard.js?v={{ app_version }}"></script>
+  <script src="/static/modules/detective.js?v={{ app_version }}"></script>
+  <script src="/static/modules/virtual-chassis.js?v={{ app_version }}"></script>
+  <script src="/static/modules/operations.js?v={{ app_version }}"></script>
+  <!-- Topology, Change Verifier, Config Backups, Event Relay and Operations Assistant load on first
+       open: see LAZY_TOOL_SCRIPTS in core.js (v0.10.23). -->
+  <script src="/static/modules/poe.js?v={{ app_version }}"></script>
+  <script src="/static/modules/security.js?v={{ app_version }}"></script>
+  <script src="/static/modules/inventory.js?v={{ app_version }}"></script>
+  <script src="/static/modules/history.js?v={{ app_version }}"></script>
+  <script src="/static/modules/settings.js?v={{ app_version }}"></script>
+  <script src="/static/modules/connections.js?v={{ app_version }}"></script>
+  <script src="/static/modules/triage-settings.js?v={{ app_version }}"></script>
+</body>
+</html>
