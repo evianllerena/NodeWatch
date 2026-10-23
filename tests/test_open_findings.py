@@ -53,16 +53,36 @@ class PermissionCoverage(unittest.TestCase):
         missing = [r for r in self.unsafe if r not in self.map]
         self.assertEqual(missing, [], "new unsafe route: add it to tests/baselines/permission_map.json")
 
-    @open_finding
     def test_no_unsafe_route_is_unreviewed(self):
         unreviewed = [r for r, v in self.map.items() if v == "unreviewed"]
         self.assertEqual(unreviewed, [])
 
-    @open_finding
+    def test_permission_map_matches_the_app(self):
+        from app.core.route_permissions import ROUTE_PERMISSIONS
+
+        self.assertEqual(self.map, {k: (v or "none") for k, v in ROUTE_PERMISSIONS.items()})
+
     def test_triage_and_settings_permissions_are_enforced_somewhere(self):
-        uses = "\n".join(p.read_text("utf-8") for p in APP.rglob("*.py"))
-        self.assertRegex(uses, r"require\((?:PERM_)?TRIAGE\)")
-        self.assertRegex(uses, r"require\((?:PERM_)?SETTINGS_ADMIN\)")
+        """A principal without permissions gets 403 from every route that names one, before the route runs."""
+        import app.main as main
+        from app.core.auth import AuthResult, Principal
+        from app.core.route_permissions import ROUTE_PERMISSIONS
+        from tests.support.asgi import Client
+
+        nobody = Principal(id="t", display="t", kind="user", permissions=frozenset())
+        real = main.AUTH_PROVIDER.authenticate
+        main.AUTH_PROVIDER.authenticate = lambda request, path: AuthResult(principal=nobody)
+        try:
+            c = Client(main.app)
+            guarded = [k for k, v in ROUTE_PERMISSIONS.items() if v]
+            self.assertTrue({"alerts.triage", "settings.admin"} <= set(ROUTE_PERMISSIONS.values()))
+            for key in guarded:
+                method, path = key.split(" ", 1)
+                url = re.sub(r"\{[^}]+\}", "x", path)
+                with self.subTest(route=key):
+                    self.assertEqual(c.request(method, url, json_body={}).status, 403)
+        finally:
+            main.AUTH_PROVIDER.authenticate = real
 
 
 # ------------------------------------------------------------------ review: Low
