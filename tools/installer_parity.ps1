@@ -6,7 +6,13 @@ $ErrorActionPreference = "Continue"
 if ($Report) {
   # Each file as notices of at most 3,500 characters (GitHub shows 10 notices per step).
   Get-ChildItem $Report -File | Where-Object { $_.Name -match $Pattern } | ForEach-Object {
-    $t = (Get-Content $_.FullName -Raw)
+    $lines = @(Get-Content $_.FullName)
+    if ($_.Name -match 'files|registry|processes') {
+      # Diffs: the totals, then only the lines that mention NodeWatch (a runner has lots of unrelated churn).
+      $keep = @($lines | Where-Object { $_ -match '^(ADDED|REMOVED)|nodewatch|_internal' })
+      $lines = @("$($lines.Count) lines, $($keep.Count) shown") + $keep
+    }
+    $t = ($lines -join "`n")
     if (-not $t) { $t = "(empty)" }
     $t = $t -replace '::', ': :' -replace '%','%25' -replace "`r",'' -replace "`n",'%0A'
     for ($i = 0; $i -lt [Math]::Min($t.Length, 7000); $i += 3500) {
