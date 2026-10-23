@@ -1638,15 +1638,15 @@ def discover() -> dict[str, Connector]:
         from app.integrations import connectors as pkg
 
         try:
+            # v0.10.50: the allow-list says what loads. Listing the folder only finds packages dropped in beside them,
+            # which are reported and never imported. (A compiled build has no package folders to list.)
             for info in pkgutil.iter_modules(pkg.__path__):
-                if not info.ispkg or info.name.startswith("_"):
-                    continue
-                if info.name not in SHIPPED_CONNECTORS:
+                if info.ispkg and not info.name.startswith("_") and info.name not in SHIPPED_CONNECTORS:
                     log.warning("Connector package %s is not on the allow-list; not imported", info.name)
                     _FAILED[info.name] = "Not loaded: package is not on NodeWatch's connector allow-list"
-                    continue
+            for name in sorted(SHIPPED_CONNECTORS):
                 try:
-                    instance = _load_one(pkg.__name__, info.name)
+                    instance = _load_one(pkg.__name__, name)
                     connector_id = instance.manifest.connector_id
                     if connector_id in _CONNECTORS:
                         raise ValueError(f"duplicate connector_id {connector_id!r} (already used by another package)")
@@ -1654,8 +1654,8 @@ def discover() -> dict[str, Connector]:
                     if registry.descriptor(connector_id) is None:
                         registry.register(instance.descriptor, lambda inst=instance: inst)
                 except Exception as exc:  # noqa: BLE001 - one broken connector must not take NodeWatch down
-                    log.exception("Connector %s failed to load", info.name)
-                    _FAILED[info.name] = f"{type(exc).__name__}: {redact_text(exc)}"[:300]
+                    log.exception("Connector %s failed to load", name)
+                    _FAILED[name] = f"{type(exc).__name__}: {redact_text(exc)}"[:300]
             _load_extra_connections()
         finally:
             _DISCOVERED = True

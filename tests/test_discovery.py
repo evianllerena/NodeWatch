@@ -31,6 +31,16 @@ class ConnectorDiscovery(unittest.TestCase):
         self.assertEqual(failures, {}, f"connectors failed to load: {failures}")
         self.assertEqual(loaded, EXPECTED_CONNECTORS)
 
+    def test_connectors_load_without_listing_the_folder(self):
+        """A compiled build has no package folders to list (v0.10.50): the allow-list alone decides what loads."""
+        self.sdk.reset_for_tests()
+        with mock.patch.object(self.sdk.pkgutil, "iter_modules", lambda path=None, prefix="": iter(())):
+            loaded = {c.manifest.connector_id for c in self.sdk.discover().values()}
+        self.assertEqual(loaded, EXPECTED_CONNECTORS)
+        self.assertEqual(self.sdk.load_failures(), {})
+        self.sdk.reset_for_tests()
+        self.sdk.discover()
+
     def test_manifests_validate(self):
         for c in self.sdk.discover().values():
             with self.subTest(connector=c.manifest.connector_id):

@@ -1,13 +1,14 @@
 name: release
 
-# Builds the downloads (tools/build_release.py, docs/RELEASE.md): this commit's app/ source, the Windows launcher
-# compiled from release/windows-launcher with the NodeWatch icon and version details, and the shipped v0.10.42
-# programs that have no source here. Tests them on real Windows and macOS machines (including an upgrade from
+# Builds the downloads (tools/build_release.py, docs/RELEASE.md): this commit's app/ compiled with Nuitka into one
+# native module (Phase 2; tools/compile_packages.py), the Windows launcher and installer built from source
+# (release/windows-launcher, release/windows-installer) with the NodeWatch icon and version details, and the shipped
+# v0.10.42 runtimes and macOS launcher. Tests them on real Windows and macOS machines (including an upgrade from
 # v0.10.42) and publishes both files as a private GitHub prerelease named after the version.
 on:
   push:
     branches: [main]
-    paths: [app/**, docs/*.md, release/**, tools/build_release.py, tools/extract_windows_payload.py, tools/launcher_parity.ps1, .github/workflows/release.yml]
+    paths: [app/**, docs/*.md, release/**, tools/build_release.py, tools/compile_packages.py, tools/extract_windows_payload.py, tools/launcher_parity.ps1, .github/workflows/release.yml]
   workflow_dispatch:
 
 permissions:
@@ -26,39 +27,78 @@ jobs:
           echo "id=$(python3 tools/build_release.py build-id)" >> "$GITHUB_OUTPUT"
           echo "version=$(python3 tools/build_release.py version)" >> "$GITHUB_OUTPUT"
 
-  windows-build:
+  compile:
+    # Phase 2 (Tier 1): the app package compiled into one native module per system (Nuitka, free edition, Python 3.12).
     needs: build-id
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Nuitka (free edition)
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip > /dev/null
+          python -m pip install nuitka ordered-set zstandard
+          echo "::notice title=toolchain ${{ matrix.os }}::Python $(python -c 'import sys;print(sys.version.split()[0])'), Nuitka $(python -m nuitka --version | head -n 1)"
+      - name: Compile
+        shell: bash
+        run: python tools/compile_packages.py --build ${{ needs.build-id.outputs.id }} --out compiled
+      - name: Every connector and triage backend loads from the compiled module
+        shell: bash
+        run: |
+          python -m pip install --no-deps -q -r tests/requirements-ci.txt
+          mkdir -p check/app && cp compiled/app.* check/ && cp app/launcher.py check/app/
+          python -c "import shutil; shutil.copytree('app', 'check/app', dirs_exist_ok=True, ignore=shutil.ignore_patterns('*.py', '__pycache__'))"
+          cd check && python -c "
+          import app.integrations.connectors.sdk as s, app.services.triage.registry as r
+          c, t = sorted(s.discover()), sorted(r.discover())
+          print('connectors', c, s.load_failures(), 'triage', t, r.load_failures())
+          assert c == ['fortigate', 'mist', 'paloalto_scm', 'panorama', 'silverpeak_orchestrator', 'snmp'] and not s.load_failures()
+          assert t == ['local', 'nodewatch_server', 'shared_folder'] and not r.load_failures()
+          "
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compiled-${{ runner.os }}
+          path: |
+            compiled/app.*
+            compiled/BUILD.txt
+
+  windows-build:
+    needs: [build-id, compile]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Check the shipped installer is the recorded file
         run: echo "808d30c555e58faba5066f42593446ce09e2190563195cf5c7176fdc5be1d2b0  shipped/v0.10.42/NodeWatch-windows-installer.exe" | sha256sum -c
+      - uses: actions/download-artifact@v4
+        with:
+          name: compiled-Windows
+          path: compiled
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24.7"
           cache: false
-      - name: Icon and version details for the launcher (go-winres)
+      - name: Icons and version details for the launcher and the installer (go-winres)
         run: |
           v=${{ needs.build-id.outputs.version }}
-          cd release/windows-launcher
-          note() { echo "::notice title=$1::$(sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' "$2" | head -c 3500)"; }
-          go list -m -versions github.com/tc-hib/go-winres > versions.txt 2>&1 || true
-          note "go-winres versions" versions.txt
-          if ! go run github.com/tc-hib/go-winres@v0.3.3 simply --arch amd64 --icon ../resources/icon-256.png --manifest gui \
-            --file-version "$v.0" --product-version "$v.0" --file-description "NodeWatch" --product-name "NodeWatch" \
-            --copyright "BWN" --original-filename "NodeWatch.exe" --out rsrc > winres.txt 2>&1; then
-            note "go-winres failed" winres.txt
-            go run github.com/tc-hib/go-winres@v0.3.3 help simply > help.txt 2>&1 || true
-            note "go-winres help" help.txt
-            exit 1
-          fi
-          rm -f versions.txt winres.txt
-          ls -l *.syso
-      - name: Build the installer
+          for d in windows-launcher windows-installer; do
+            desc="NodeWatch"; [ "$d" = windows-installer ] && desc="NodeWatch Setup"
+            (cd release/$d && go run github.com/tc-hib/go-winres@v0.3.3 simply --arch amd64 --icon ../resources/icon-256.png --manifest gui \
+              --file-version "$v.0" --product-version "$v.0" --file-description "$desc" --product-name "NodeWatch" \
+              --copyright "BWN" --original-filename "NodeWatch.exe" --out rsrc)
+          done
+      - name: Build the installer (from source, with the compiled app)
         run: |
           mkdir -p dist
-          python3 tools/build_release.py windows --installer shipped/v0.10.42/NodeWatch-windows-installer.exe \
-            --out dist/NodeWatch.exe --build ${{ needs.build-id.outputs.id }}
+          python3 tools/build_release.py windows-installer --installer shipped/v0.10.42/NodeWatch-windows-installer.exe \
+            --out dist/NodeWatch.exe --build ${{ needs.build-id.outputs.id }} --compiled compiled | tee build.txt
+          echo "::notice title=windows build::$(grep -v '^changed\|^added\|^removed  app' build.txt | sed ':a;N;$!ba;s/\n/%0A/g' | head -c 3000)"
       - uses: actions/upload-artifact@v4
         with:
           name: windows
@@ -126,7 +166,8 @@ jobs:
 
   upgrade:
     # An app window keeps its browser cache across upgrades. Open v0.10.42, then this build, then a second build
-    # of the same commit, in one profile: each page must be its own build (no "Build mismatch").
+    # of the same commit, in one profile: each page must be its own build (no "Build mismatch"). Runs on Linux, so
+    # it uses this commit's source (the compiled module is Windows-only); the page files are the same.
     needs: [build-id, windows-build]
     runs-on: ubuntu-latest
     steps:
@@ -151,10 +192,9 @@ jobs:
         run: |
           id=${{ needs.build-id.outputs.id }}
           next="${id:0:${#id}-10}upgradechk"
-          python tools/build_release.py windows --installer shipped/v0.10.42/NodeWatch-windows-installer.exe --out next.exe --build "$next" > /dev/null
           python tools/extract_windows_payload.py shipped/v0.10.42/NodeWatch-windows-installer.exe "$RUNNER_TEMP/a" > /dev/null
-          python tools/extract_windows_payload.py dist/NodeWatch.exe "$RUNNER_TEMP/b" > /dev/null
-          python tools/extract_windows_payload.py next.exe "$RUNNER_TEMP/c" > /dev/null
+          python tools/build_release.py windows-tree --installer shipped/v0.10.42/NodeWatch-windows-installer.exe --out-dir "$RUNNER_TEMP/b" --build "$id" > /dev/null
+          python tools/build_release.py windows-tree --installer shipped/v0.10.42/NodeWatch-windows-installer.exe --out-dir "$RUNNER_TEMP/c" --build "$next" > /dev/null
       - name: Upgrade v0.10.42 -> this build -> next build in one browser profile
         run: |
           set -o pipefail
@@ -163,17 +203,21 @@ jobs:
           echo "::notice title=upgrade::$(cat step2.txt | sed ':a;N;$!ba;s/\n/%0A/g')"
 
   macos:
-    needs: build-id
+    needs: [build-id, compile]
     runs-on: macos-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Check the shipped archive is the recorded file
         run: echo "eaa8bc7e23d4323c3432dc593c21a6f48c4dbee5b5d4c2ed4f9f66b809c5fd4f  shipped/v0.10.42/NodeWatch-macos.zip" | shasum -a 256 -c
-      - name: Build the app
+      - uses: actions/download-artifact@v4
+        with:
+          name: compiled-macOS
+          path: compiled
+      - name: Build the app (with the compiled app)
         run: |
           ditto -x -k shipped/v0.10.42/NodeWatch-macos.zip "$RUNNER_TEMP/build"
-          python3 tools/build_release.py macos --app "$RUNNER_TEMP/build/NodeWatch.app" --build ${{ needs.build-id.outputs.id }}
+          python3 tools/build_release.py macos --app "$RUNNER_TEMP/build/NodeWatch.app" --build ${{ needs.build-id.outputs.id }} --compiled compiled
           codesign --force --deep --sign - "$RUNNER_TEMP/build/NodeWatch.app"
           codesign --verify --deep --strict --verbose=2 "$RUNNER_TEMP/build/NodeWatch.app"
           mkdir -p dist
@@ -235,4 +279,4 @@ jobs:
           cat SHA256SUMS.txt
           gh release create "v${{ needs.build-id.outputs.version }}-${{ github.sha }}" * --repo "${{ github.repository }}" --target "${{ github.sha }}" \
             --prerelease --title "NodeWatch v${{ needs.build-id.outputs.version }} (build ${{ needs.build-id.outputs.id }})" \
-            --notes "NodeWatch v${{ needs.build-id.outputs.version }}, built from commit ${{ github.sha }}. Not code-signed yet (Windows SmartScreen and macOS Gatekeeper will warn). Tested on GitHub Windows and macOS runners before publishing."
+            --notes "NodeWatch v${{ needs.build-id.outputs.version }}, built from commit ${{ github.sha }}. The app code ships compiled (no Python source except the start-up file). Not code-signed yet (Windows SmartScreen and macOS Gatekeeper will warn). Tested on GitHub Windows and macOS runners before publishing."
