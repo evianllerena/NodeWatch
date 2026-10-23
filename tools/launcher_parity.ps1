@@ -57,6 +57,18 @@ while ($sw.Elapsed.TotalSeconds -lt $Seconds) {
     Start-Sleep -Milliseconds 1000
 }
 
+# Second launch while the first is running: v0.10.42 should reuse the running backend.
+if ($answered) {
+    $before = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$Root*" } | ForEach-Object { $_.ProcessId })
+    $p2 = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+    $t0 = $sw.Elapsed.TotalSeconds
+    while (-not $p2.HasExited -and ($sw.Elapsed.TotalSeconds - $t0) -lt 30) { Start-Sleep -Milliseconds 500 }
+    Start-Sleep -Seconds 3
+    $new = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$Root*" -and $before -notcontains $_.ProcessId -and $_.ProcessId -ne $p2.Id } |
+        ForEach-Object { "pid=$($_.ProcessId) parent=$($_.ParentProcessId) $($_.ExecutablePath)" })
+    $timeline.Add(("second launch: exited={0} code={1} after {2:N1}s; new processes: {3}" -f $p2.HasExited, $(if ($p2.HasExited) { $p2.ExitCode } else { "-" }), ($sw.Elapsed.TotalSeconds - $t0), $(if ($new) { $new -join "; " } else { "none" })))
+}
+
 Note "parity timeline" ($timeline -join "`n")
 Note "parity backend" ($(if ($answered) { $answered } else { "no port 8765-8795 answered the probe within $Seconds s" }))
 
@@ -64,7 +76,8 @@ if (Test-Path $data) {
     $tree = Get-ChildItem $data -Recurse -Depth 2 -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch "\\pycache\\|\\runtime" } |
         ForEach-Object { $_.FullName.Substring($data.Length) + $(if ($_.PSIsContainer) { "\" } else { " ($($_.Length) B)" }) }
     Note "parity data folder" (($tree | Select-Object -First 60) -join "`n")
-    foreach ($log in (Get-ChildItem $data -Recurse -Include *.log -ErrorAction SilentlyContinue)) {
+    $logs = @(Get-ChildItem (Join-Path $data "logs") -File -ErrorAction SilentlyContinue) + @(Get-ChildItem (Join-Path $data "app-window") -Filter *.log -File -ErrorAction SilentlyContinue)
+    foreach ($log in $logs) {
         $lines = Get-Content $log.FullName -Tail 40 -ErrorAction SilentlyContinue
         Note ("log " + $log.FullName.Substring($data.Length)) ($lines -join "`n")
     }
