@@ -162,7 +162,6 @@ class LowFindings(unittest.TestCase):
         """Baseline finding #9."""
         self.assertNotIn("OWNER_KEY_DEFAULT_DIGEST", _src("modules/system/router.py"))
 
-    @open_finding
     def test_keychain_items_use_explicit_accessibility(self):
         self.assertIn("kSecAttrAccessible", _src("core/macos_keychain.py"))
 

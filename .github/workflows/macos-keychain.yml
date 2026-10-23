@@ -1,0 +1,24 @@
+name: macos-keychain
+
+# Exercises app/core/macos_keychain.py against a real macOS login keychain. macOS minutes cost more,
+# so it runs only when that file changes, or on demand.
+on:
+  push:
+    branches: [main]
+    paths: [app/core/macos_keychain.py, tests/tools/keychain_roundtrip.py, .github/workflows/macos-keychain.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  roundtrip:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack the shipped app to use its bundled Python
+        run: ditto -x -k shipped/v0.10.42/NodeWatch-macos.zip "$RUNNER_TEMP/nw"
+      - name: Keychain round trip with the bundled Python
+        run: |
+          "$RUNNER_TEMP/nw/NodeWatch.app/Contents/Resources/_internal/runtime-macos/python-arm64/bin/python3.12" \
+            tests/tools/keychain_roundtrip.py "$PWD"

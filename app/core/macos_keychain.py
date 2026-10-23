@@ -24,6 +24,8 @@ ERR_SEC_ITEM_NOT_FOUND = -25300
 ERR_SEC_DUPLICATE_ITEM = -25299
 ERR_SEC_AUTH_FAILED = -25293
 ERR_SEC_INTERACTION_NOT_ALLOWED = -25308
+ERR_SEC_PARAM = -50
+ERR_SEC_NO_SUCH_ATTR = -25303
 ERR_USER_CANCELED = -128
 
 _UTF8 = 0x08000100  # kCFStringEncodingUTF8
@@ -81,6 +83,9 @@ class _Api:
         self.kSecAttrService = const(sec, "kSecAttrService")
         self.kSecAttrAccount = const(sec, "kSecAttrAccount")
         self.kSecAttrLabel = const(sec, "kSecAttrLabel")
+        self.kSecAttrAccessible = const(sec, "kSecAttrAccessible")
+        # Readable once the Mac has been unlocked after boot; never migrates to another device via backup.
+        self.kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly = const(sec, "kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly")
         self.kSecValueData = const(sec, "kSecValueData")
         self.kSecReturnData = const(sec, "kSecReturnData")
         self.kSecMatchLimit = const(sec, "kSecMatchLimit")
@@ -188,8 +193,14 @@ def set_password(service: str, secret: bytes, account: str = ACCOUNT, label: str
             raise KeychainError("update", status)
         lbl = api.string(label or service)
         owned.append(lbl)
-        add = api.dictionary(pairs + [(api.kSecValueData, value), (api.kSecAttrLabel, lbl)])
+        base = pairs + [(api.kSecValueData, value), (api.kSecAttrLabel, lbl)]
+        add = api.dictionary(base + [(api.kSecAttrAccessible, api.kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)])
         status = api.sec.SecItemAdd(add, None)
+        if status in (ERR_SEC_PARAM, ERR_SEC_NO_SUCH_ATTR):
+            # A keychain that does not take the attribute: store the item as v0.10.42 did.
+            api.release(add)
+            add = api.dictionary(base)
+            status = api.sec.SecItemAdd(add, None)
         if status == ERR_SEC_DUPLICATE_ITEM:  # created concurrently: update it instead
             status = api.sec.SecItemUpdate(query, update)
         if status != ERR_SEC_SUCCESS:
