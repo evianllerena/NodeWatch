@@ -54,6 +54,8 @@ def main() -> int:
             "run": result.testsRun,
             "failures": [t.id() for t, _ in result.failures],
             "errors": [t.id() for t, _ in result.errors],
+            "details": [{"test": t.id(), "kind": kind, "traceback": tb[-1500:]}
+                        for kind, items in (("failure", result.failures), ("error", result.errors)) for t, tb in items],
             "skipped": [[t.id(), why] for t, why in result.skipped],
             "expected_failures": [t.id() for t, _ in result.expectedFailures],
             "unexpected_successes": [t.id() for t in result.unexpectedSuccesses],
