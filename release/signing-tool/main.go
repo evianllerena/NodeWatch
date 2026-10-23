@@ -118,7 +118,7 @@ func systemDir() string {
 func ps(script string, env ...string) (string, error) {
 	cmd := exec.Command(filepath.Join(systemDir(), `WindowsPowerShell\v1.0\powershell.exe`),
 		"-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script)
-	cmd.Env = append(os.Environ(), env...)
+	cmd.Env = append(cleanEnv(), env...)
 	out, err := cmd.CombinedOutput()
 	text := strings.TrimSpace(string(out))
 	if err != nil {
@@ -706,4 +706,16 @@ func writePayload(entries []entry, size int) ([]byte, error) {
 	binary.LittleEndian.PutUint32(tail[16:], uint32(cdOff+pad))
 	out = append(out, tail...)
 	return out, nil
+}
+
+// cleanEnv is this process's environment without PSModulePath: started from PowerShell 7, Windows PowerShell would
+// otherwise load PowerShell 7's modules and lose the Cert: drive and the signing commands.
+func cleanEnv() []string {
+	var env []string
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(strings.ToUpper(kv), "PSMODULEPATH=") {
+			env = append(env, kv)
+		}
+	}
+	return env
 }

@@ -260,7 +260,7 @@ func extract(dest string) error {
 func powershell(script string, env ...string) error {
 	cmd := exec.Command(filepath.Join(systemDir(), `WindowsPowerShell\v1.0\powershell.exe`),
 		"-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script)
-	cmd.Env = append(os.Environ(), env...)
+	cmd.Env = append(cleanEnv(), env...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -280,7 +280,7 @@ func processesIn(dir string) []string {
 	cmd := exec.Command(filepath.Join(systemDir(), `WindowsPowerShell\v1.0\powershell.exe`),
 		"-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
 		`Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ProcessId -ne [int]$env:NW_SELF -and $_.ExecutablePath.StartsWith($env:NW_DIR + '\', 'OrdinalIgnoreCase') } | ForEach-Object { "$($_.ProcessId) $($_.Name)" }`)
-	cmd.Env = append(os.Environ(), "NW_DIR="+dir, fmt.Sprintf("NW_SELF=%d", os.Getpid()))
+	cmd.Env = append(cleanEnv(), "NW_DIR="+dir, fmt.Sprintf("NW_SELF=%d", os.Getpid()))
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 	out, _ := cmd.Output()
 	var rows []string
@@ -504,4 +504,16 @@ func runUninstall(silent bool) int {
 		CmdLine: `"` + shell + `" /c "ping -n 3 127.0.0.1 > nul & del /f /q "` + self + `" & rmdir "` + dir + `""`}
 	_ = cmd.Start()
 	return 0
+}
+
+// cleanEnv is this process's environment without PSModulePath: started from PowerShell 7, Windows PowerShell would
+// otherwise load PowerShell 7's modules and lose the Cert: drive and the signing commands.
+func cleanEnv() []string {
+	var env []string
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(strings.ToUpper(kv), "PSMODULEPATH=") {
+			env = append(env, kv)
+		}
+	}
+	return env
 }
