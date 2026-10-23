@@ -20,6 +20,7 @@ package main
 
 import (
 	"archive/zip"
+	"bufio"
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
@@ -52,7 +53,8 @@ const (
 
 func main() {
 	if len(os.Args) < 2 {
-		usage()
+		interactive() // double-clicked: a simple menu instead of commands
+		return
 	}
 	var err error
 	switch strings.ToLower(os.Args[1]) {
@@ -297,10 +299,25 @@ func verifyFile(path, pubPath string) error {
 
 // ---------------------------------------------------------------------------------------------- backup
 
-func readPassword(prompt string) string {
+var stdin = bufio.NewReader(os.Stdin)
+
+func readLine(prompt string) string {
 	fmt.Print(prompt)
-	var pw string
-	fmt.Scanln(&pw)
+	line, _ := stdin.ReadString('\n')
+	return strings.TrimSpace(line)
+}
+
+// readPassword reads a line without showing it on screen.
+func readPassword(prompt string) string {
+	k32 := syscall.NewLazyDLL("kernel32.dll")
+	h, _, _ := k32.NewProc("GetStdHandle").Call(uintptr(0xFFFFFFF6)) // STD_INPUT_HANDLE
+	var mode uint32
+	if r, _, _ := k32.NewProc("GetConsoleMode").Call(h, uintptr(unsafe.Pointer(&mode))); r != 0 {
+		k32.NewProc("SetConsoleMode").Call(h, uintptr(mode&^0x4)) // no echo
+		defer k32.NewProc("SetConsoleMode").Call(h, uintptr(mode))
+	}
+	pw := readLine(prompt)
+	fmt.Println()
 	return pw
 }
 
@@ -309,9 +326,12 @@ func backupKey(pw string, salt []byte) ([]byte, error) { return pbkdf2.Key(sha51
 // backup writes both keys (the certificate with its private key, and the minisign key) into one file encrypted
 // with a password you choose. Keep it offline (a USB drive in a safe place); restore it with "restore".
 func backup(folder string) error {
-	pw := readPassword("Password for the backup (at least 12 characters): ")
+	pw := readPassword("Choose a password for the backup (at least 12 characters, it is not shown): ")
 	if len(pw) < 12 {
 		return errors.New("use at least 12 characters")
+	}
+	if readPassword("Type the same password again: ") != pw {
+		return errors.New("the two passwords are different; nothing was written")
 	}
 	keyID, priv, err := loadSecret()
 	if err != nil {
@@ -749,4 +769,130 @@ func clearBrokenCertificateEntry(pe []byte) []byte {
 	binary.LittleEndian.PutUint32(out[entry:], 0)
 	binary.LittleEndian.PutUint32(out[entry+4:], 0)
 	return out
+}
+
+// ---------------------------------------------------------------------------------------------- menu (double-click)
+
+func exeDir() string {
+	self, err := os.Executable()
+	if err != nil {
+		return mustCwd()
+	}
+	return filepath.Dir(self)
+}
+
+func haveKeys() bool {
+	_, err := os.Stat(filepath.Join(keyDir(), "minisign.key"))
+	return err == nil
+}
+
+// findDownload looks for a release file next to this program, then in Downloads.
+func findDownload(name string) string {
+	for _, dir := range []string{exeDir(), filepath.Join(os.Getenv("USERPROFILE"), "Downloads")} {
+		p := filepath.Join(dir, name)
+		if st, err := os.Stat(p); err == nil && !st.IsDir() {
+			return p
+		}
+	}
+	return ""
+}
+
+func interactive() {
+	_ = os.Chdir(exeDir()) // the public files are written next to this program
+	for {
+		fmt.Println()
+		fmt.Println("==============================================")
+		fmt.Println(" NodeWatch-Sign  -  sign NodeWatch releases")
+		fmt.Println("==============================================")
+		if haveKeys() {
+			fmt.Println(" Keys on this PC: yes")
+		} else {
+			fmt.Println(" Keys on this PC: not yet - start with 1")
+		}
+		fmt.Println()
+		fmt.Println("  1  First-time setup (make your certificate and signing key)")
+		fmt.Println("  2  Back up the keys to a USB drive")
+		fmt.Println("  3  Sign a release (NodeWatch.exe and NodeWatch.zip)")
+		fmt.Println("  4  Check a signed file")
+		fmt.Println("  5  Restore the keys from a backup (new PC)")
+		fmt.Println("  0  Close")
+		fmt.Println()
+		choice := readLine("Type a number and press Enter: ")
+		var err error
+		switch choice {
+		case "1":
+			err = setup()
+			if err == nil {
+				fmt.Println()
+				fmt.Println("Done. In this folder (" + exeDir() + "):")
+				fmt.Println("  BWN-NodeWatch-CodeSigning.cer  -> send to the customer's IT")
+				fmt.Println("  minisign.pub                   -> send to the customer")
+				fmt.Println("Next: choose 2 to back up the keys.")
+			}
+		case "2":
+			drive := readLine("Plug in the USB drive, then type its letter (for example E): ")
+			drive = strings.TrimRight(strings.TrimSpace(drive), ":\\/")
+			if len(drive) != 1 {
+				err = errors.New("type just the drive letter, for example E")
+			} else {
+				err = backup(strings.ToUpper(drive) + ":\\")
+			}
+		case "3":
+			err = menuSign()
+		case "4":
+			f := findDownload("NodeWatch.exe")
+			if in := readLine("File to check [" + f + "] (Enter = this one): "); in != "" {
+				f = strings.Trim(in, `"`)
+			}
+			if f == "" {
+				err = errors.New("no file given")
+			} else {
+				err = verifyFile(f, filepath.Join(keyDir(), "minisign.pub"))
+			}
+		case "5":
+			f := strings.Trim(readLine("Full path of the backup file (for example E:\\NodeWatch-signing-backup.nwsb): "), `"`)
+			err = restore(f)
+		case "0", "":
+			return
+		default:
+			fmt.Println("Type 1, 2, 3, 4, 5 or 0.")
+			continue
+		}
+		if err != nil {
+			fmt.Println()
+			fmt.Println("PROBLEM:", err)
+		}
+		readLine("\nPress Enter to go back to the menu...")
+	}
+}
+
+func menuSign() error {
+	if !haveKeys() {
+		return errors.New("no keys on this PC yet: choose 1 (first-time setup) first")
+	}
+	var files []string
+	for _, name := range []string{"NodeWatch.exe", "NodeWatch.zip"} {
+		if p := findDownload(name); p != "" {
+			files = append(files, p)
+		}
+	}
+	if len(files) == 0 {
+		return fmt.Errorf("NodeWatch.exe and NodeWatch.zip were not found in %s or in Downloads. Download them from the latest release first", exeDir())
+	}
+	fmt.Println("Files to sign:")
+	for _, f := range files {
+		fmt.Println("  " + f)
+	}
+	if strings.ToLower(readLine("Sign these? (y/n): ")) != "y" {
+		return nil
+	}
+	if err := signRelease(files); err != nil {
+		return err
+	}
+	fmt.Println()
+	fmt.Println("Done. Send the customer these files (same folder):")
+	for _, f := range files {
+		fmt.Println("  " + filepath.Base(f) + "  and  " + filepath.Base(f) + ".minisig")
+	}
+	return nil
 }

@@ -3,42 +3,38 @@
 Your signing keys stay on your PC. GitHub builds and tests the release; you sign it on your PC with
 **NodeWatch-Sign.exe** (Releases › "NodeWatch-Sign (signing tool …)"; not for customers).
 
-## Once
+## Using it (double-click, no commands)
 
-1. Put `NodeWatch-Sign.exe` in a folder, open a Command Prompt or PowerShell there, and run:
+Double-click `NodeWatch-Sign.exe`. A window opens with a menu; type a number and press Enter.
+(Windows may first say it protected your PC: click **More info**, then **Run anyway**.)
 
-       NodeWatch-Sign.exe setup
+| Number | What it does | When |
+|---|---|---|
+| 1 | First-time setup: makes your code-signing certificate and signing key, and puts two public files next to the program: `BWN-NodeWatch-CodeSigning.cer` (for the customer's IT) and `minisign.pub` (for the customer) | Once |
+| 2 | Backs up both keys to a USB drive, protected by a password you choose | Once, right after 1 |
+| 3 | Signs `NodeWatch.exe` and `NodeWatch.zip` (found next to the program or in Downloads) and makes `.minisig` files | Every release |
+| 4 | Checks a signed file | When you want |
+| 5 | Restores the keys from the backup | Only on a new PC |
 
-   It makes:
-   - a code-signing certificate "BWN NodeWatch Code Signing" (RSA 3072, SHA-256, valid 5 years) in your
-     Windows certificate store (Current User), and `BWN-NodeWatch-CodeSigning.cer`, its public part;
-   - a minisign key (Ed25519), stored encrypted for your Windows account in `%APPDATA%\NodeWatch-Signing`,
-     and `minisign.pub`, its public part.
+Every release: download `NodeWatch.exe` and `NodeWatch.zip` from the latest release, choose 3, then send the customer
+`NodeWatch.exe`, `NodeWatch.zip`, `NodeWatch.exe.minisig` and `NodeWatch.zip.minisig`.
 
-2. Make an offline backup (a USB drive kept safe; the password is asked for):
+The customer's IT adds `BWN-NodeWatch-CodeSigning.cer` to **Trusted Publishers** and **Trusted Root Certification
+Authorities** by Group Policy (once). Customers can check a download with the official minisign:
+`minisign -Vm NodeWatch.exe -p minisign.pub`.
 
-       NodeWatch-Sign.exe backup E:\
+Command-line use (the same steps): `NodeWatch-Sign.exe setup | backup E:\ | sign NodeWatch.exe NodeWatch.zip |
+verify NodeWatch.exe minisign.pub | restore <backup file>`.
 
-   To move signing to another PC: `NodeWatch-Sign.exe restore E:\NodeWatch-signing-backup.nwsb`.
-
-3. Give the customer's IT `BWN-NodeWatch-CodeSigning.cer`. They deploy it by Group Policy to
-   **Trusted Publishers** and **Trusted Root Certification Authorities**. Give customers `minisign.pub` too.
-
-## Every release
-
-Download `NodeWatch.exe` and `NodeWatch.zip` from the release, put them next to `NodeWatch-Sign.exe`, and run:
-
-    NodeWatch-Sign.exe sign NodeWatch.exe NodeWatch.zip
+## What it does
 
 - Windows: every program file inside the installer (launcher, backend host, app window, compiled app,
-  Python runtime) is Authenticode-signed and timestamped (timestamp server: timestamp.digicert.com; without
-  internet the signature has no timestamp), the integrity list and the launcher's pinned hash are updated, and
-  the installer itself is signed last. The files the Python runtime's makers already signed keep their signature.
+  Python runtime) is Authenticode-signed and timestamped (timestamp.digicert.com; without internet the signature has
+  no timestamp), the integrity list and the launcher's pinned hash are updated, and the installer is signed last.
+  Files the Python runtime's makers already signed keep their signature.
 - macOS: the app keeps its ad-hoc Apple signature (Apple's Developer ID and notarization are not free).
-- Both files get a `.minisig`. Customers check a download with the official minisign:
-  `minisign -Vm NodeWatch.exe -p minisign.pub`, or `NodeWatch-Sign.exe verify NodeWatch.exe minisign.pub`.
-
-Send customers `NodeWatch.exe`, `NodeWatch.zip` and the two `.minisig` files.
+- Keys: the certificate is in your Windows certificate store (Current User); the minisign key is in
+  `%APPDATA%\NodeWatch-Signing`, encrypted for your Windows account. Nothing is uploaded.
 
 ## What is checked on GitHub
 
