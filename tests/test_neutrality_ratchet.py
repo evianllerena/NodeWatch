@@ -38,6 +38,11 @@ def measure() -> dict[str, int]:
         "mist_direct_files": sum(1 for t in text.values() if re.search(r"mist_client|get_mist_client", t)),
         "vendor_extra_reads": sum(len(re.findall(r"\.vendor\[|\.vendor\.get\(|\[\"vendor\"\]\[|\[\"vendor\"\]\.get", t))
                                   for t in text.values()),
+        # The vendor-extras dict read indirectly: getattr(x, "vendor", ...) and e.get("vendor") or {}.
+        # Plain .get("vendor") reads of a manufacturer string (unified_device_service, operations_service) are not counted.
+        "vendor_extra_reads_indirect": sum(len(re.findall(r"getattr\(\w+,\s*[\"']vendor[\"']", t))
+                                           + len(re.findall(r"\.get\([\"']vendor[\"']\)\s*or\s*\{\}", t))
+                                           for t in text.values()),
         "mist_source_branches": sum(len(re.findall(r"[=!]=\s*[\"']mist[\"']", t)) for t in text.values()),
         "duck_typed_connector_calls": sum(len(re.findall(r"getattr\(\w+,\s*[\"'](?:list_|search_|get_|warm)", t))
                                           + len(re.findall(r"hasattr\(\w+,\s*[\"'](?:list_|acknowledge_|search_)", t))

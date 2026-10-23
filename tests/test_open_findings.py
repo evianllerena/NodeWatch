@@ -149,7 +149,7 @@ class Cleanup(unittest.TestCase):
     @open_finding
     def test_one_html_escape_helper(self):
         copies = [p.name for p in (APP / "static").rglob("*.js")
-                  if re.search(r"(const|function) *(esc|escapeHtml|escHtml|_esc)\b", p.read_text("utf-8", "replace"))]
+                  if re.search(r"(const|function) +(\w*Esc|esc|_esc|\w*[eE]scapeHtml|escHtml)\b", p.read_text("utf-8", "replace"))]
         self.assertLessEqual(len(copies), 1, copies)
 
 
@@ -180,6 +180,16 @@ class Neutrality(unittest.TestCase):
                 self.assertTrue({"connection_id", "tenant_id"} <= names)
 
     @open_finding
+    def test_N1_stored_keys_carry_connection(self):
+        """Fields alone are not enough: site and device keys must differ between two connections of one vendor."""
+        import inspect
+        from app.integrations.connectors import sdk
+
+        for fn in (sdk.site_key, sdk.device_key, sdk.save_connector_settings):
+            with self.subTest(function=fn.__name__):
+                self.assertIn("connection_id", inspect.signature(fn).parameters)
+
+    @open_finding
     def test_N3_sdk_imports_nothing_vendor_named(self):
         self.assertNotIn("app.integrations.providers", _src("integrations/connectors/sdk.py"))
 
@@ -195,8 +205,10 @@ class Neutrality(unittest.TestCase):
 
     @open_finding
     def test_N9_no_os_specific_credential_text_in_connectors(self):
+        # Matches the phrase even when split across lines or adjacent string literals (sdk.py, silverpeak).
+        pattern = re.compile(r"Windows[\s\"']*Credential|Credential[\s\"']*Manager")
         hits = [p.relative_to(APP).as_posix() for p in (APP / "integrations" / "connectors").rglob("*.py")
-                if "Windows Credential Manager" in p.read_text("utf-8")]
+                if pattern.search(p.read_text("utf-8"))]
         self.assertEqual(hits, [])
 
 

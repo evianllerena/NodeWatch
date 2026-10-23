@@ -24,7 +24,7 @@ from tests.support.asgi import Client, api_routes
 
 BASELINE = Path(__file__).with_name("baselines") / "no_mist.json"
 RANK = {"error": 0, "sample": 1, "needs_input": 2, "locked": 2, "needs_setup": 2, "ok": 3}
-SKIP = {"/api/v1/system/shutdown"}
+SKIP: set[str] = set()
 
 
 def classify(status: int, body: bytes) -> str:

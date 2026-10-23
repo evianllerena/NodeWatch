@@ -18,7 +18,7 @@ jobs:
       - name: Install the shipped package versions
         run: python -m pip install --no-deps -r tests/requirements-ci.txt
       - name: Run the test suite (source target)
-        run: python tests/run.py -v --min-tests 58 --report test-result.json
+        run: python tests/run.py -v --min-tests 59 --report test-result.json
       - name: Report results as annotations
         if: always()
         run: python tests/tools/annotate.py test-result.json
