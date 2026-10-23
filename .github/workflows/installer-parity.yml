@@ -1,0 +1,32 @@
+name: installer-parity
+
+# Records what the shipped v0.10.42 Windows installer does, from the outside, so a replacement installer can be
+# checked against it: files and folders it creates, shortcuts, registry entries under HKCU, whether it starts the
+# app, its exit codes, and the windows and texts it shows when run without /S. Nothing is changed in the repo.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/installer-parity.yml, tools/installer_parity.ps1]
+
+permissions:
+  contents: read
+
+jobs:
+  record:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record the shipped installer
+        shell: pwsh
+        run: ./tools/installer_parity.ps1 -Installer shipped\v0.10.42\NodeWatch-windows-installer.exe -Out parity
+      - name: Report
+        if: always()
+        shell: pwsh
+        run: |
+          Get-ChildItem parity -File | ForEach-Object {
+            $t = (Get-Content $_.FullName -Raw) -replace '%','%25' -replace "`r",'' -replace "`n",'%0A'
+            if ($t.Length -gt 3500) { $t = $t.Substring(0, 3500) }
+            Write-Output "::notice title=$($_.Name)::$t"
+          }
