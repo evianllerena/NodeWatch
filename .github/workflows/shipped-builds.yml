@@ -28,9 +28,9 @@ jobs:
       - name: Run the suite with the bundled Windows Python
         run: >
           & "${{ runner.temp }}\nw\NodeWatch\_internal\runtime\python\python.exe" tests\run.py -v
-          --target bundle --root "${{ runner.temp }}\nw\NodeWatch\_internal" --report test-result-windows.json
-      - name: Show failures as annotations
-        if: failure()
+          --target bundle --root "${{ runner.temp }}\nw\NodeWatch\_internal" --min-tests 58 --report test-result-windows.json
+      - name: Report results as annotations
+        if: always()
         run: python tests/tools/annotate.py test-result-windows.json
       - uses: actions/upload-artifact@v4
         if: always()
@@ -51,9 +51,9 @@ jobs:
       - name: Run the suite with the bundled macOS Python
         run: |
           I="$RUNNER_TEMP/nw/NodeWatch.app/Contents/Resources/_internal"
-          "$I/runtime-macos/python-arm64/bin/python3.12" tests/run.py -v --target bundle --root "$I" --report test-result-macos.json
-      - name: Show failures as annotations
-        if: failure()
+          "$I/runtime-macos/python-arm64/bin/python3.12" tests/run.py -v --target bundle --root "$I" --min-tests 58 --report test-result-macos.json
+      - name: Report results as annotations
+        if: always()
         run: python3 tests/tools/annotate.py test-result-macos.json
       - uses: actions/upload-artifact@v4
         if: always()

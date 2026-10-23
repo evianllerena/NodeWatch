@@ -30,6 +30,7 @@ def main() -> int:
     ap.add_argument("-k", dest="pattern", help="only run tests whose id contains this text")
     ap.add_argument("--report", help="write a JSON result file here")
     ap.add_argument("-v", action="store_true")
+    ap.add_argument("--min-tests", type=int, default=0, help="fail if fewer tests than this ran")
     args = ap.parse_args()
 
     os.environ["NODEWATCH_TEST_TARGET"] = args.target
@@ -60,6 +61,9 @@ def main() -> int:
             "expected_failures": [t.id() for t, _ in result.expectedFailures],
             "unexpected_successes": [t.id() for t in result.unexpectedSuccesses],
         }, indent=2), encoding="utf-8")
+    if result.testsRun < args.min_tests:
+        print(f"Only {result.testsRun} tests ran; at least {args.min_tests} expected", file=sys.stderr)
+        return 1
     return 0 if result.wasSuccessful() else 1
 
 
