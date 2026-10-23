@@ -62,7 +62,7 @@ jobs:
           mkdir -p check/app && cp compiled/app.* check/ && cp app/launcher.py check/app/
           # The app's data files (templates, static, bin) beside the module; portable copy (macOS cp has no --parents).
           python -c "import shutil; shutil.copytree('app', 'check/app', dirs_exist_ok=True, ignore=shutil.ignore_patterns('*.py', '__pycache__'))"
-          cd check && python -X faulthandler -c "import app, app.core.version as v, app.integrations.connectors.sdk as s, app.services.triage.registry, app.main; print('ok', v.APP_BUILD, app.__file__, len(s.discover()))" 2>&1 | tee ../import.txt
+          cd check && python -X faulthandler -c "import app, app.core.version as v, app.integrations.connectors.sdk as s, app.services.triage.registry as r, app.main; print('ok', v.APP_BUILD, app.__file__, sorted(s.discover()), s.load_failures(), sorted(r.discover()), r.load_failures())" 2>&1 | tee ../import.txt
           status=$?
           echo "::notice title=import ${{ matrix.os }}::$(sed ':a;N;$!ba;s/\n/%0A/g' ../import.txt | tail -c 3000)"
           exit $status

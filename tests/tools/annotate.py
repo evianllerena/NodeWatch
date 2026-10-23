@@ -11,3 +11,6 @@ for d in r.get("details", [])[:40]:
     lines = [ln.strip() for ln in d["traceback"].strip().splitlines() if ln.strip()][-3:]
     msg = " | ".join(lines).replace("%", "%25")
     print(f"::error title={d['kind']}: {d['test']}::{msg[:900]}")
+if r.get("skipped"):
+    rows = "%0A".join(f"{t.split('.', 1)[-1]}: {why}"[:160].replace("%", "%25") for t, why in r["skipped"][:40])
+    print(f"::notice title=skipped tests ({len(r['skipped'])})::{rows[:3800]}")
