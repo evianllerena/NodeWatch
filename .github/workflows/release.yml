@@ -104,7 +104,9 @@ jobs:
         run: python3 tests/tools/annotate.py test-result-macos.json
       - name: Start the app and check the backend answers as this build
         run: |
-          APP="$RUNNER_TEMP/check/NodeWatch.app"
+          # A fresh copy: the test run above wrote bytecode into the checked copy, which the launcher would quarantine.
+          rm -rf "$RUNNER_TEMP/run" && ditto -x -k dist/*.zip "$RUNNER_TEMP/run"
+          APP="$RUNNER_TEMP/run/NodeWatch.app"
           "$APP/Contents/MacOS/NodeWatch" > "$RUNNER_TEMP/launcher.out" 2>&1 &
           found=""
           for i in $(seq 1 90); do
@@ -143,6 +145,6 @@ jobs:
           cd dist
           sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
-          gh release create "pilot-${{ needs.build-id.outputs.id }}" * --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+          gh release create "${{ needs.build-id.outputs.id }}" * --repo "${{ github.repository }}" --target "${{ github.sha }}" \
             --prerelease --title "Pilot build ${{ needs.build-id.outputs.id }}" \
             --notes "Built from commit ${{ github.sha }} on top of the shipped v0.10.42 binaries. Not code-signed yet (Windows SmartScreen and macOS Gatekeeper will warn). Tested on GitHub Windows and macOS runners before publishing."
