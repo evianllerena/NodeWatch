@@ -60,6 +60,7 @@ jobs:
       - name: Setup (throw-away keys on the runner) and sign
         shell: pwsh
         run: |
+          trap { Write-Output ("::error title=step failed::" + (($_ | Out-String) -replace '%','%25' -replace "`r",'' -replace "`n",'%0A')); exit 1 }
           function Note($title, $text) { $t = ($text -join "`n") -replace '%','%25' -replace "`r",'' -replace "`n",'%0A'; Write-Output "::notice title=$title::$($t.Substring(0, [Math]::Min(3500, $t.Length)))" }
           function Run($title) { $out = & $args[0] $args[1..($args.Count - 1)] 2>&1 | ForEach-Object { "$_" }; $code = $LASTEXITCODE; Note "$title (exit $code)" $out; if ($code -ne 0) { throw "$title failed" } }
           New-Item -ItemType Directory -Force -Path work | Out-Null
@@ -80,6 +81,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          trap { Write-Output ("::error title=step failed::" + (($_ | Out-String) -replace '%','%25' -replace "`r",'' -replace "`n",'%0A')); exit 1 }
           $ProgressPreference = 'SilentlyContinue'
           New-Item -ItemType Directory -Force -Path ms | Out-Null
           Invoke-WebRequest -Uri https://github.com/jedisct1/minisign/releases/download/0.12/minisign-0.12-win64.zip -OutFile ms\minisign.zip
@@ -92,6 +94,7 @@ jobs:
       - name: Install the signed installer; every program file is signed; the launcher starts
         shell: pwsh
         run: |
+          trap { Write-Output ("::error title=step failed::" + (($_ | Out-String) -replace '%','%25' -replace "`r",'' -replace "`n",'%0A')); exit 1 }
           $p = Start-Process -FilePath work\NodeWatch.exe -ArgumentList "/S" -PassThru -Wait
           if ($p.ExitCode -ne 0) { throw "silent install exit $($p.ExitCode)" }
           $dir = Join-Path $env:LOCALAPPDATA "Programs\NodeWatch"
