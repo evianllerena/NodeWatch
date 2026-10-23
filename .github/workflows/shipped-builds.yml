@@ -1,0 +1,62 @@
+name: shipped-builds
+
+# Runs the test suite with each shipped build's own bundled Python, on real Windows and macOS machines.
+# Windows and macOS runners cost more than Linux, so this runs on pushes to main and on demand only.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check the installer is the recorded file
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash shipped/v0.10.42/NodeWatch-windows-installer.exe -Algorithm SHA256).Hash.ToLower()
+          if ($h -ne "808d30c555e58faba5066f42593446ce09e2190563195cf5c7176fdc5be1d2b0") { throw "installer hash $h" }
+      - name: Extract the installer payload and verify it against integrity.json
+        run: python tools/extract_windows_payload.py shipped/v0.10.42/NodeWatch-windows-installer.exe "${{ runner.temp }}\nw"
+      - name: Run the suite with the bundled Windows Python
+        run: >
+          & "${{ runner.temp }}\nw\NodeWatch\_internal\runtime\python\python.exe" tests\run.py -v
+          --target bundle --root "${{ runner.temp }}\nw\NodeWatch\_internal" --report test-result-windows.json
+      - name: Show failures as annotations
+        if: failure()
+        run: python tests/tools/annotate.py test-result-windows.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-result-windows
+          path: test-result-windows.json
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the archive is the recorded file
+        run: |
+          h=$(shasum -a 256 shipped/v0.10.42/NodeWatch-macos.zip | cut -d' ' -f1)
+          test "$h" = "eaa8bc7e23d4323c3432dc593c21a6f48c4dbee5b5d4c2ed4f9f66b809c5fd4f"
+      - name: Unpack the app
+        run: ditto -x -k shipped/v0.10.42/NodeWatch-macos.zip "$RUNNER_TEMP/nw"
+      - name: Run the suite with the bundled macOS Python
+        run: |
+          I="$RUNNER_TEMP/nw/NodeWatch.app/Contents/Resources/_internal"
+          "$I/runtime-macos/python-arm64/bin/python3.12" tests/run.py -v --target bundle --root "$I" --report test-result-macos.json
+      - name: Show failures as annotations
+        if: failure()
+        run: python3 tests/tools/annotate.py test-result-macos.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-result-macos
+          path: test-result-macos.json

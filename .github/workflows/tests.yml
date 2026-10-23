@@ -21,16 +21,7 @@ jobs:
         run: python tests/run.py -v --report test-result.json
       - name: Show failures as annotations
         if: failure()
-        run: |
-          python - <<'PY'
-          import json
-          r = json.load(open("test-result.json"))
-          print(f"run={r['run']} failures={len(r['failures'])} errors={len(r['errors'])}")
-          for d in r.get("details", [])[:40]:
-              last = [l for l in d["traceback"].strip().splitlines() if l.strip()][-3:]
-              msg = " | ".join(x.strip() for x in last).replace("%", "%25").replace("\n", " ")
-              print(f"::error title={d['kind']}: {d['test']}::{msg[:900]}")
-          PY
+        run: python tests/tools/annotate.py test-result.json
       - name: Keep the result file
         if: always()
         uses: actions/upload-artifact@v4
