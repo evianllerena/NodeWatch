@@ -31,7 +31,10 @@ function Snap-Files {
     if (Test-Path $p) {
       $rows += Get-ChildItem $p -Recurse -Force -ErrorAction SilentlyContinue |
         Where-Object { $_.FullName -notmatch '\\Temp\\(gh|_runner|msedge|chocolatey)' } |
+        Where-Object { $_.FullName -notmatch '\\_internal\\' } |
         ForEach-Object { "{0}|{1}" -f $_.FullName, ($(if ($_.PSIsContainer) { "dir" } else { $_.Length })) }
+      $inner = Get-ChildItem $p -Recurse -Force -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match '\\_internal\\' }
+      if ($inner) { $rows += "$p (files under _internal: $(@($inner).Count), $((@($inner) | Measure-Object Length -Sum).Sum) bytes)" }
     }
   }
   return $rows
