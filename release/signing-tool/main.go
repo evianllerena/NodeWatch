@@ -79,6 +79,8 @@ func main() {
 			usage()
 		}
 		err = backup(os.Args[2])
+	case "export-github":
+		err = exportForGitHub()
 	case "restore":
 		if len(os.Args) < 3 {
 			usage()
@@ -223,6 +225,14 @@ func dpapi(data []byte, protect bool) ([]byte, error) {
 }
 
 func loadSecret() ([]byte, ed25519.PrivateKey, error) {
+	// On GitHub (automatic signing) the key comes from the encrypted secret NW_MINISIGN_KEY.
+	if v := strings.TrimSpace(os.Getenv("NW_MINISIGN_KEY")); v != "" {
+		raw, err := base64.StdEncoding.DecodeString(v)
+		if err != nil || len(raw) != 8+ed25519.PrivateKeySize {
+			return nil, nil, errors.New("NW_MINISIGN_KEY is not a NodeWatch-Sign key")
+		}
+		return raw[:8], ed25519.PrivateKey(raw[8:]), nil
+	}
 	blob, err := os.ReadFile(filepath.Join(keyDir(), "minisign.key"))
 	if err != nil {
 		return nil, nil, errors.New("no minisign key on this PC. Run: NodeWatch-Sign.exe setup")
@@ -815,6 +825,7 @@ func interactive() {
 		fmt.Println("  3  Sign a release (NodeWatch.exe and NodeWatch.zip)")
 		fmt.Println("  4  Check a signed file")
 		fmt.Println("  5  Restore the keys from a backup (new PC)")
+		fmt.Println("  6  Let GitHub sign every release (copy the keys into GitHub, once)")
 		fmt.Println("  0  Close")
 		fmt.Println()
 		choice := readLine("Type a number and press Enter: ")
@@ -849,13 +860,15 @@ func interactive() {
 			} else {
 				err = verifyFile(f, filepath.Join(keyDir(), "minisign.pub"))
 			}
+		case "6":
+			err = exportForGitHub()
 		case "5":
 			f := strings.Trim(readLine("Full path of the backup file (for example E:\\NodeWatch-signing-backup.nwsb): "), `"`)
 			err = restore(f)
 		case "0", "":
 			return
 		default:
-			fmt.Println("Type 1, 2, 3, 4, 5 or 0.")
+			fmt.Println("Type 1, 2, 3, 4, 5, 6 or 0.")
 			continue
 		}
 		if err != nil {
@@ -894,5 +907,62 @@ func menuSign() error {
 	for _, f := range files {
 		fmt.Println("  " + filepath.Base(f) + "  and  " + filepath.Base(f) + ".minisig")
 	}
+	return nil
+}
+
+// ---------------------------------------------------------------------------------------------- GitHub secrets
+
+func toClipboard(text string) error {
+	cmd := exec.Command(filepath.Join(systemDir(), "clip.exe"))
+	cmd.Stdin = strings.NewReader(text)
+	return cmd.Run()
+}
+
+// exportForGitHub puts the three values GitHub needs on the clipboard one at a time (nothing is written to disk
+// except a temporary certificate file that is deleted at once). GitHub stores them encrypted as repository secrets.
+func exportForGitHub() error {
+	keyID, priv, err := loadSecret()
+	if err != nil {
+		return err
+	}
+	pwBytes := make([]byte, 24)
+	if _, err := rand.Read(pwBytes); err != nil {
+		return err
+	}
+	pfxPassword := base64.RawURLEncoding.EncodeToString(pwBytes)
+	pfx := filepath.Join(os.TempDir(), fmt.Sprintf("nw-%x.pfx", time.Now().UnixNano()))
+	defer os.Remove(pfx)
+	if _, err := ps(findCert+`
+$pw = ConvertTo-SecureString -String $env:NW_PW -AsPlainText -Force
+Export-PfxCertificate -Cert $c -FilePath $env:NW_OUT -Password $pw | Out-Null`, "NW_SUBJECT="+subject, "NW_OUT="+pfx, "NW_PW="+pfxPassword); err != nil {
+		return fmt.Errorf("export the certificate: %w", err)
+	}
+	cert, err := os.ReadFile(pfx)
+	if err != nil {
+		return err
+	}
+	_ = os.Remove(pfx)
+	secrets := []struct{ name, value string }{
+		{"NW_SIGN_PFX", base64.StdEncoding.EncodeToString(cert)},
+		{"NW_SIGN_PFX_PASSWORD", pfxPassword},
+		{"NW_MINISIGN_KEY", base64.StdEncoding.EncodeToString(append(append([]byte{}, keyID...), priv...))},
+	}
+	fmt.Println()
+	fmt.Println("GitHub will sign every release with your keys. Do this once:")
+	fmt.Println("  1. In your browser open:  https://github.com/evianllerena/NodeWatch/settings/secrets/actions")
+	fmt.Println("  2. For each of the 3 secrets below: click \"New repository secret\", type the Name shown,")
+	fmt.Println("     click in the Secret box and press Ctrl+V (the value is already copied), then \"Add secret\".")
+	fmt.Println()
+	for i, s := range secrets {
+		if err := toClipboard(s.value); err != nil {
+			return fmt.Errorf("copy to the clipboard: %w", err)
+		}
+		fmt.Printf("Secret %d of 3   Name:  %s   (value copied - paste it with Ctrl+V)\n", i+1, s.name)
+		readLine("   Press Enter when you have clicked Add secret... ")
+	}
+	_ = toClipboard(" ")
+	fmt.Println()
+	fmt.Println("Done (the clipboard was cleared). From now on every release on GitHub is signed: NodeWatch.exe,")
+	fmt.Println("NodeWatch.zip and their .minisig files. Your keys also stay on this PC; keep the USB backup.")
 	return nil
 }

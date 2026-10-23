@@ -99,6 +99,12 @@ jobs:
           python3 tools/build_release.py windows-installer --installer shipped/v0.10.42/NodeWatch-windows-installer.exe \
             --out dist/NodeWatch.exe --build ${{ needs.build-id.outputs.id }} --compiled compiled | tee build.txt
           echo "::notice title=windows build::$(grep -v '^changed\|^added\|^removed  app' build.txt | sed ':a;N;$!ba;s/\n/%0A/g' | head -c 3000)"
+      - name: Build the signing tool (NodeWatch-Sign)
+        run: (cd release/signing-tool && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../../NodeWatch-Sign.exe .)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signing-tool
+          path: NodeWatch-Sign.exe
       - uses: actions/upload-artifact@v4
         with:
           name: windows
@@ -260,12 +266,14 @@ jobs:
           name: macos
           path: dist/
 
-  publish:
+  sign:
+    # Your keys, stored as encrypted GitHub secrets (NodeWatch-Sign menu option 6). Without them the release is
+    # published unsigned, as before.
     needs: [build-id, windows-test, macos, upgrade]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    runs-on: windows-latest
+    timeout-minutes: 30
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: windows
@@ -274,15 +282,91 @@ jobs:
         with:
           name: macos
           path: dist
-      - name: Publish a private prerelease with both downloads
+      - uses: actions/download-artifact@v4
+        with:
+          name: signing-tool
+          path: tool
+      - name: Sign with your keys and check the result
+        shell: pwsh
+        env:
+          NW_SIGN_PFX: ${{ secrets.NW_SIGN_PFX }}
+          NW_SIGN_PFX_PASSWORD: ${{ secrets.NW_SIGN_PFX_PASSWORD }}
+          NW_MINISIGN_KEY: ${{ secrets.NW_MINISIGN_KEY }}
+        run: |
+          trap { Write-Output ("::error title=signing failed::" + (($_ | Out-String) -replace '%','%25' -replace "`r",'' -replace "`n",'%0A')); exit 1 }
+          if (-not $env:NW_SIGN_PFX -or -not $env:NW_SIGN_PFX_PASSWORD -or -not $env:NW_MINISIGN_KEY) {
+            Write-Output "::warning title=not signed::The signing secrets are not set (NodeWatch-Sign menu option 6), so this release is published unsigned."
+            exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP "nw.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:NW_SIGN_PFX.Trim()))
+          $pw = ConvertTo-SecureString -String $env:NW_SIGN_PFX_PASSWORD.Trim() -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pw
+          Remove-Item $pfx -Force
+          $expected = (New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 (Resolve-Path release\keys\BWN-NodeWatch-CodeSigning.cer)).Thumbprint
+          if ($cert.Thumbprint -ne $expected) { throw "the certificate in the secret ($($cert.Thumbprint)) is not the one in release/keys ($expected)" }
+          Push-Location dist
+          $out = & ..\tool\NodeWatch-Sign.exe sign NodeWatch.exe NodeWatch.zip 2>&1 | Out-String
+          $code = $LASTEXITCODE
+          Write-Output ("::notice title=sign (exit $code)::" + ($out -replace "`r",'' -replace "`n",'%0A'))
+          if ($code -ne 0) { throw "signing failed" }
+          foreach ($f in 'NodeWatch.exe', 'NodeWatch.zip') {
+            $v = & ..\tool\NodeWatch-Sign.exe verify $f ..\release\keys\minisign.pub 2>&1 | Out-String
+            if ($LASTEXITCODE -ne 0) { throw "minisign check of ${f}: $v" }
+          }
+          Pop-Location
+          # Check like a customer whose IT trusts your certificate: the installer and every installed program file.
+          Import-Certificate -FilePath release\keys\BWN-NodeWatch-CodeSigning.cer -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+          Import-Certificate -FilePath release\keys\BWN-NodeWatch-CodeSigning.cer -CertStoreLocation Cert:\LocalMachine\TrustedPublisher | Out-Null
+          $s = Get-AuthenticodeSignature dist\NodeWatch.exe
+          if ($s.Status -ne 'Valid') { throw "installer signature: $($s.Status)" }
+          $p = Start-Process -FilePath dist\NodeWatch.exe -ArgumentList "/S" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "signed installer: silent install exit $($p.ExitCode)" }
+          $dir = Join-Path $env:LOCALAPPDATA "Programs\NodeWatch"
+          $bad = Get-ChildItem $dir -Recurse -File | Where-Object { $_.Extension -in '.exe','.dll','.pyd' } | Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -ne 'Valid' }
+          if ($bad) { throw "not validly signed: $($bad.Name -join ', ')" }
+          Write-Output "::notice title=signed::installer, every installed program file and both .minisig files check out with your keys"
+      - name: The signed installer starts NodeWatch
+        shell: pwsh
+        env:
+          NW_SIGNED: ${{ secrets.NW_MINISIGN_KEY != '' }}
+        run: |
+          if ($env:NW_SIGNED -ne 'true') { exit 0 }
+          ./tools/launcher_parity.ps1 -Root (Join-Path $env:LOCALAPPDATA "Programs") -Seconds 120 -ExpectBuild "${{ needs.build-id.outputs.id }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: |
+            dist/NodeWatch.exe
+            dist/NodeWatch.zip
+            dist/*.minisig
+
+  publish:
+    needs: [build-id, sign]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: dist
+      - name: Publish a private prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd dist
           ls -l
-          [ "$(ls | sort | tr '\n' ' ')" = "NodeWatch.exe NodeWatch.zip " ] || { echo "::error::expected only NodeWatch.exe and NodeWatch.zip, found: $(ls)"; exit 1; }
+          names="$(ls | sort | tr '\n' ' ')"
+          case "$names" in
+            "NodeWatch.exe NodeWatch.exe.minisig NodeWatch.zip NodeWatch.zip.minisig ")
+              notes="Signed with your keys: Windows code signature on the installer and every program file inside, and minisign signatures (.minisig) for both downloads. Check with: minisign -Vm NodeWatch.exe -p minisign.pub" ;;
+            "NodeWatch.exe NodeWatch.zip ")
+              notes="Not signed (the signing secrets are not set). Windows SmartScreen and macOS Gatekeeper will warn." ;;
+            *) echo "::error::unexpected files: $names"; exit 1 ;;
+          esac
           sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
           gh release create "v${{ needs.build-id.outputs.version }}-${{ github.sha }}" * --repo "${{ github.repository }}" --target "${{ github.sha }}" \
             --prerelease --title "NodeWatch v${{ needs.build-id.outputs.version }} (build ${{ needs.build-id.outputs.id }})" \
-            --notes "NodeWatch v${{ needs.build-id.outputs.version }}, built from commit ${{ github.sha }}. The app code ships compiled (no Python source except the start-up file). Not code-signed yet (Windows SmartScreen and macOS Gatekeeper will warn). Tested on GitHub Windows and macOS runners before publishing."
+            --notes "NodeWatch v${{ needs.build-id.outputs.version }}, built from commit ${{ github.sha }}. The app code ships compiled. $notes macOS keeps its ad-hoc Apple signature (Apple signing is not free). Tested on GitHub Windows and macOS runners before publishing."

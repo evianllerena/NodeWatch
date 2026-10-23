@@ -1,7 +1,10 @@
 # Signing NodeWatch releases (Phase 3)
 
-Your signing keys stay on your PC. GitHub builds and tests the release; you sign it on your PC with
-**NodeWatch-Sign.exe** (Releases › "NodeWatch-Sign (signing tool …)"; not for customers).
+Your keys were made on your PC with **NodeWatch-Sign.exe** (Releases › "NodeWatch-Sign (signing tool …)"; not for
+customers). Since v0.10.52 GitHub signs every release with them (your decision, 2026-10-23): menu option 6 copies the
+keys into the repository's encrypted secrets once. Each release is then published already signed, after GitHub checks
+the signatures with the public keys in `release/keys/` and installs and starts the signed installer. Without the
+secrets a release is published unsigned. Signing on your PC (option 3) still works.
 
 ## Using it (double-click, no commands)
 
@@ -15,6 +18,7 @@ Double-click `NodeWatch-Sign.exe`. A window opens with a menu; type a number and
 | 3 | Signs `NodeWatch.exe` and `NodeWatch.zip` (found next to the program or in Downloads) and makes `.minisig` files | Every release |
 | 4 | Checks a signed file | When you want |
 | 5 | Restores the keys from the backup | Only on a new PC |
+| 6 | Copies the keys into GitHub's encrypted secrets (one value at a time, via the clipboard) so GitHub signs every release | Once |
 
 Every release: download `NodeWatch.exe` and `NodeWatch.zip` from the latest release, choose 3, then send the customer
 `NodeWatch.exe`, `NodeWatch.zip`, `NodeWatch.exe.minisig` and `NodeWatch.zip.minisig`.
