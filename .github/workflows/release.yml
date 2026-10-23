@@ -294,8 +294,10 @@ jobs:
           NW_MINISIGN_KEY: ${{ secrets.NW_MINISIGN_KEY }}
         run: |
           trap { Write-Output ("::error title=signing failed::" + (($_ | Out-String) -replace '%','%25' -replace "`r",'' -replace "`n",'%0A')); exit 1 }
+          $seen = "NW_SIGN_PFX=$([bool]$env:NW_SIGN_PFX) NW_SIGN_PFX_PASSWORD=$([bool]$env:NW_SIGN_PFX_PASSWORD) NW_MINISIGN_KEY=$([bool]$env:NW_MINISIGN_KEY)"
           if (-not $env:NW_SIGN_PFX -or -not $env:NW_SIGN_PFX_PASSWORD -or -not $env:NW_MINISIGN_KEY) {
-            Write-Output "::warning title=not signed::The signing secrets are not set (NodeWatch-Sign menu option 6), so this release is published unsigned."
+            $asVariables = "${{ vars.NW_SIGN_PFX != '' }}/${{ vars.NW_SIGN_PFX_PASSWORD != '' }}/${{ vars.NW_MINISIGN_KEY != '' }}"
+            Write-Output "::warning title=not signed::Repository secrets found: $seen. Saved as Variables instead of Secrets: $asVariables. This release is published unsigned."
             exit 0
           }
           $pfx = Join-Path $env:RUNNER_TEMP "nw.pfx"
