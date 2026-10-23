@@ -88,6 +88,12 @@ jobs:
       - name: Report test results
         if: always()
         run: python tests/tools/annotate.py test-result-windows.json
+      - name: Started from a folder other users can change (nothing installed yet), it offers the one-click install
+        shell: pwsh
+        run: |
+          python tools/extract_windows_payload.py (Get-Item dist\*.exe).FullName "${{ runner.temp }}\shared"
+          ./tools/launcher_parity.ps1 -Root "${{ runner.temp }}\shared" -Seconds 90 -ExpectWindow "Install NodeWatch"
+          Get-Process NodeWatch* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
       - name: Install the shipped v0.10.42 first, so the new installer upgrades an existing install
         shell: pwsh
         run: |
@@ -117,11 +123,6 @@ jobs:
       - name: Start the installed launcher and record what it does
         shell: pwsh
         run: ./tools/launcher_parity.ps1 -Root $env:NW_INSTALLED -Seconds 120 -ExpectBuild "${{ needs.build-id.outputs.id }}"
-      - name: Started from a folder other users can change, it offers the one-click install
-        shell: pwsh
-        run: |
-          Get-Process NodeWatch* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-          ./tools/launcher_parity.ps1 -Root "${{ runner.temp }}\nw" -Seconds 90 -ExpectWindow "Install NodeWatch"
 
   upgrade:
     # An app window keeps its browser cache across upgrades. Open v0.10.42, then this build, then a second build
@@ -204,11 +205,11 @@ jobs:
           for f in "$HOME/Library/Application Support/NodeWatch/logs/"*.log; do
             [ -f "$f" ] && echo "::notice title=$(basename "$f")::$(tail -n 15 "$f" | sed ':a;N;$!ba;s/\n/%0A/g')"
           done
-          pkill -f "NodeWatch.app" || true
-          case "$found" in *'${{ needs.build-id.outputs.id }}'*) ;; *) echo "backend did not answer as this build"; exit 1;; esac
           port=${found%% *}
           page=$(curl -s --max-time 5 "http://127.0.0.1:$port/static/core.js" | grep -o "FRONTEND_BUILD = '[^']*'" || true)
           echo "::notice title=macOS page::$page"
+          pkill -f "NodeWatch.app" || true
+          case "$found" in *'${{ needs.build-id.outputs.id }}'*) ;; *) echo "backend did not answer as this build"; exit 1;; esac
           case "$page" in *'${{ needs.build-id.outputs.id }}'*) ;; *) echo "page build differs from backend build"; exit 1;; esac
       - uses: actions/upload-artifact@v4
         with:
