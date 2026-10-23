@@ -181,7 +181,8 @@ def _secure(response, path: str):
         "frame-ancestors 'none'; form-action 'self'"
     )
     if path.startswith("/static/") and not path.endswith(".json"):
-        # v0.10.23: every static URL carries ?v=<version> (index.html), so a new release always
+        # v0.10.23: every static URL carries ?v=<build> (index.html; the build, not the version, since pilot builds
+        # share version 0.10.42), so a new release always
         # fetches fresh files; within one version the webview may keep them instead of
         # re-downloading and re-parsing ~1.3 MB of JS/CSS on every launch and reload.
         response.headers["Cache-Control"] = "private, max-age=604800, immutable"

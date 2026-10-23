@@ -261,9 +261,9 @@ const TOOL_MODULE_KEYS = {
 };
 const NW_ASSET_VERSION = (() => {
   try {
-    return new URL(document.currentScript.src).searchParams.get('v') || FRONTEND_VERSION;
+    return new URL(document.currentScript.src).searchParams.get('v') || FRONTEND_BUILD;
   } catch {
-    return FRONTEND_VERSION;
+    return FRONTEND_BUILD;
   }
 })();
 const lazyToolLoads = {};

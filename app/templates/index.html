@@ -5,34 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="nodewatch-write-token" content="{{ write_request_token }}" />
   <title>NodeWatch</title>
-  <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/nodewatch-icon-32.png?v={{ app_version }}" />
-  <link rel="icon" type="image/png" sizes="64x64" href="/static/brand/nodewatch-icon-64.png?v={{ app_version }}" />
-  <link rel="icon" type="image/png" sizes="128x128" href="/static/brand/nodewatch-mark.png?v={{ app_version }}" />
-  <link rel="apple-touch-icon" href="/static/brand/nodewatch-mark.png?v={{ app_version }}" />
-  <script src="/static/night.js?v={{ app_version }}"></script>
-  <link rel="stylesheet" href="/static/style.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/themes.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/ui-tools.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/port-toolkit.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/chassis.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/power-guard.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/backups.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/layout.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/traffic.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/siem.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/attention.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/connections.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/topology.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/detective.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/security.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/refinements.css?v={{ app_version }}" />
-  <link rel="stylesheet" href="/static/css/report.css?v={{ app_version }}" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/nodewatch-icon-32.png?v={{ app_build }}" />
+  <link rel="icon" type="image/png" sizes="64x64" href="/static/brand/nodewatch-icon-64.png?v={{ app_build }}" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/static/brand/nodewatch-mark.png?v={{ app_build }}" />
+  <link rel="apple-touch-icon" href="/static/brand/nodewatch-mark.png?v={{ app_build }}" />
+  <script src="/static/night.js?v={{ app_build }}"></script>
+  <link rel="stylesheet" href="/static/style.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/themes.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/ui-tools.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/port-toolkit.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/chassis.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/power-guard.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/backups.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/layout.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/traffic.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/siem.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/attention.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/connections.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/topology.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/detective.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/security.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/refinements.css?v={{ app_build }}" />
+  <link rel="stylesheet" href="/static/css/report.css?v={{ app_build }}" />
 </head>
 <body>
   <div class="app-frame">
     <aside class="sidebar" data-ui="Sidebar">
       <button id="brandHome" class="brand-block brand-home" type="button" title="Return to Command Center" aria-label="NodeWatch — return to Command Center">
-        <img class="brand-logo" src="/static/brand/nodewatch-mark.png?v={{ app_version }}" width="40" height="40" alt="" aria-hidden="true" />
+        <img class="brand-logo" src="/static/brand/nodewatch-mark.png?v={{ app_build }}" width="40" height="40" alt="" aria-hidden="true" />
         <div class="brand-name">NodeWatch</div>
       </button>
       <nav id="toolNav" class="tool-nav" data-ui="Sidebar › Navigation"></nav>
@@ -542,23 +542,23 @@
 
   <dialog id="resultDialog" class="dialog"><form method="dialog"><div class="dialog-head"><div><div class="eyebrow">Result</div><h3 id="resultTitle">Change Result</h3></div><button class="icon-btn">×</button></div><div id="resultBody"></div><div class="dialog-actions"><button class="btn primary">Done</button></div></form></dialog>
 
-  <script src="/static/core.js?v={{ app_version }}"></script>
-  <script src="/static/table-tools.js?v={{ app_version }}"></script>
-  <script src="/static/site-picker.js?v={{ app_version }}"></script>
-  <script src="/static/traffic-log.js?v={{ app_version }}"></script>
-  <script src="/static/modules/alerting.js?v={{ app_version }}"></script>
-  <script src="/static/modules/dashboard.js?v={{ app_version }}"></script>
-  <script src="/static/modules/detective.js?v={{ app_version }}"></script>
-  <script src="/static/modules/virtual-chassis.js?v={{ app_version }}"></script>
-  <script src="/static/modules/operations.js?v={{ app_version }}"></script>
+  <script src="/static/core.js?v={{ app_build }}"></script>
+  <script src="/static/table-tools.js?v={{ app_build }}"></script>
+  <script src="/static/site-picker.js?v={{ app_build }}"></script>
+  <script src="/static/traffic-log.js?v={{ app_build }}"></script>
+  <script src="/static/modules/alerting.js?v={{ app_build }}"></script>
+  <script src="/static/modules/dashboard.js?v={{ app_build }}"></script>
+  <script src="/static/modules/detective.js?v={{ app_build }}"></script>
+  <script src="/static/modules/virtual-chassis.js?v={{ app_build }}"></script>
+  <script src="/static/modules/operations.js?v={{ app_build }}"></script>
   <!-- Topology, Change Verifier, Config Backups, Event Relay and Operations Assistant load on first
        open: see LAZY_TOOL_SCRIPTS in core.js (v0.10.23). -->
-  <script src="/static/modules/poe.js?v={{ app_version }}"></script>
-  <script src="/static/modules/security.js?v={{ app_version }}"></script>
-  <script src="/static/modules/inventory.js?v={{ app_version }}"></script>
-  <script src="/static/modules/history.js?v={{ app_version }}"></script>
-  <script src="/static/modules/settings.js?v={{ app_version }}"></script>
-  <script src="/static/modules/connections.js?v={{ app_version }}"></script>
-  <script src="/static/modules/triage-settings.js?v={{ app_version }}"></script>
+  <script src="/static/modules/poe.js?v={{ app_build }}"></script>
+  <script src="/static/modules/security.js?v={{ app_build }}"></script>
+  <script src="/static/modules/inventory.js?v={{ app_build }}"></script>
+  <script src="/static/modules/history.js?v={{ app_build }}"></script>
+  <script src="/static/modules/settings.js?v={{ app_build }}"></script>
+  <script src="/static/modules/connections.js?v={{ app_build }}"></script>
+  <script src="/static/modules/triage-settings.js?v={{ app_build }}"></script>
 </body>
 </html>

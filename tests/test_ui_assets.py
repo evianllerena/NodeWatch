@@ -63,3 +63,18 @@ class PageMatchesBackend(unittest.TestCase):
         if not manifest.exists():
             self.skipTest("no integrity.json next to app/ (source tree)")
         self.assertEqual(json.loads(manifest.read_text("utf-8"))["build"], APP_BUILD)
+
+
+class CacheKeys(unittest.TestCase):
+    """Static files are cached for a week, keyed by their ?v= value. Pilot builds share version 0.10.42, so the
+    key must be the build: keyed on the version, an upgraded app kept the old core.js ("Build mismatch")."""
+
+    def test_every_static_url_on_the_page_carries_the_build(self):
+        from app.core.version import APP_BUILD
+        import app.main as main
+
+        html = Client(main.app).get("/").body.decode("utf-8")
+        refs = re.findall(r'(?:src|href)="(/static/[^"]+)"', html)
+        self.assertTrue(refs)
+        unkeyed = [r for r in refs if not r.endswith(f"?v={APP_BUILD}")]
+        self.assertEqual(unkeyed, [])

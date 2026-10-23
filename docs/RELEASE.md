@@ -3,8 +3,10 @@
 Every push to `main` that changes `app/`, the shipped docs or the build tool runs `.github/workflows/release.yml`.
 It publishes a private prerelease on GitHub (Releases) with:
 
-- `NodeWatch-Setup-<build>.exe`: the Windows installer
-- `NodeWatch-macOS-<build>.zip`: the macOS app (Apple silicon runtime; the launcher is universal)
+- `NodeWatch.exe`: the Windows installer
+- `NodeWatch.zip`: the macOS app (Apple silicon runtime; the launcher is universal)
+
+The build id is in the release title and inside the app (Settings › Support & data › Running version).
 - `SHA256SUMS.txt`
 
 `<build>` is `<date>-v0.10.42-pilot-<commit>`. It has the same length as the v0.10.42 build string, because it is
@@ -28,8 +30,13 @@ and zipped with `ditto`.
 
 ## What CI checks before publishing
 
+- Upgrade: the page of v0.10.42, then of this build, then of a second build, opened in one browser profile
+  (as the app window keeps its cache): each page must be its own build, never "Build mismatch".
+  Static files are cached for a week keyed by `?v=<build>`; until 2026-10-23 the key was the version, which
+  all pilot builds share, so an upgraded window kept the old `core.js`.
+
 - Windows: the payload matches its `integrity.json`; the 66-test suite passes with the bundled Python; the
-  installer installs silently (`/S`) into `%LOCALAPPDATA%\Programs\NodeWatch`; the installed launcher verifies
+  installer installs silently (`/S`) over an existing v0.10.42 install in `%LOCALAPPDATA%\Programs\NodeWatch`; the installed launcher verifies
   the files, starts the backend and app window, and the backend answers as the new build; a second launch
   reuses it. The launcher log lines match the recorded v0.10.42 behaviour (`docs/parity/`).
 - macOS: the app passes `codesign --verify`; the suite passes with the bundled Python; the launcher starts
