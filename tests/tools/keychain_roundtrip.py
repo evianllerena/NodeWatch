@@ -35,5 +35,5 @@ kc.set_password(service, two)
 assert kc.get_password(service) == two, "read after replace"
 assert kc.delete_password(service) is True, "delete"
 assert kc.get_password(service) is None, "gone after delete"
-print("create / read / replace / delete: ok")
-print("accessibility attribute:", "accepted" if status == 0 else f"not accepted ({status}); fallback path used")
+print("::notice title=keychain::create / read / replace / delete ok")
+print("::notice title=keychain::accessibility attribute", "accepted" if status == 0 else f"not accepted ({status}); fallback path used")
