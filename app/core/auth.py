@@ -122,18 +122,20 @@ class LocalTokenAuth:
     """Desktop mode: the rules NodeWatch has always applied, unchanged."""
 
     name = "local-token"
+    # Starlette's TestClient reports its client address as "testclient". Accepted only when a test
+    # sets this to True; never from configuration or the environment.
+    ALLOW_TESTCLIENT = False
 
-    @staticmethod
-    def is_loopback(request) -> bool:
+    @classmethod
+    def is_loopback(cls, request) -> bool:
         client = request.client
         if not client or not client.host:
-            return True
+            # Fail closed (pilot P1). uvicorn on the TCP socket NodeWatch binds always reports the peer.
+            return False
         try:
             return ipaddress.ip_address(client.host).is_loopback
         except ValueError:
-            # Starlette TestClient identifies itself as "testclient". Keep this non-network
-            # sentinel for automated QA only.
-            return client.host == "testclient"
+            return cls.ALLOW_TESTCLIENT and client.host == "testclient"
 
     @staticmethod
     def token_exempt(request, path: str) -> bool:

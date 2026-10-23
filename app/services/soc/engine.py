@@ -40,7 +40,7 @@ import re
 from collections import Counter, defaultdict
 from typing import Any, Iterable
 
-from app.integrations.domain import SECURITY_EVENT_KIND_LABELS, stable_key
+from app.integrations.domain import SECURITY_EVENT_KIND_LABELS, safe_console_url, stable_key
 from app.integrations.geo import country_name, country_point
 from app.services.soc.context import Context, private_ip
 
@@ -626,7 +626,7 @@ def build_cases(events: list[dict[str, Any]], state: dict[str, dict[str, Any]], 
                 "notes": list(st.get("notes") or [])[-20:],
                 "history": list(st.get("history") or [])[-20:],
                 "event_keys": [],
-                "console_url": v.get("console_url") or "",
+                "console_url": safe_console_url(v.get("console_url")),
                 "recommended": [],
             }
         )

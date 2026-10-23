@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import FileResponse
 
+from app.core.errors import NotConfiguredError
 from app.services.siem_service import (
     display_events,
     export_events,
@@ -42,6 +43,8 @@ def forwarder_save(payload: dict = Body(...)):
 def forwarder_test():
     try:
         return forward_once(force_sample=True)
+    except NotConfiguredError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -57,5 +60,7 @@ def forwarder_diagnose():
 def forwarder_run():
     try:
         return forward_once()
+    except NotConfiguredError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

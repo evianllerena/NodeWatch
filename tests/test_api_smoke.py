@@ -15,8 +15,8 @@ from tests.support.asgi import Client, api_routes
 
 # GET routes that start long-running work or wait on the network even when nothing is configured.
 SKIP_GET: set[str] = set()
-# Tracked as an open finding in test_open_findings.py (502 for "not configured"); remove when fixed.
-KNOWN_5XX = {"POST /api/v1/alerting/test", "POST /api/v1/siem/forwarder/test"}
+# Routes allowed to answer 5xx on a fresh install. Empty since Phase 1 ("not configured" now answers 409).
+KNOWN_5XX: set[str] = set()
 
 
 class _App(unittest.TestCase):

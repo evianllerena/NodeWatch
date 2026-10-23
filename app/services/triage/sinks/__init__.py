@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import importlib
 import logging
-import pkgutil
 import threading
 
 from app.services.triage.base import TriageSink
@@ -39,6 +38,8 @@ log = logging.getLogger("nodewatch.triage.sinks")
 _LOCK = threading.RLock()
 _SINKS: dict[str, TriageSink] = {}
 _DISCOVERED = False
+# Allow-list (pilot P1): only these modules are imported; a file dropped into the folder is ignored.
+SHIPPED_SINKS = ("builtin",)
 
 
 def register(sink: TriageSink) -> None:
@@ -54,22 +55,20 @@ def unregister(sink_id: str) -> None:
 
 
 def discover() -> None:
-    """Register every module in this package that exposes ``SINK``."""
+    """Register the shipped sink modules (``SHIPPED_SINKS``) that expose ``SINK``."""
     global _DISCOVERED
     with _LOCK:
         if _DISCOVERED:
             return
         _DISCOVERED = True
-        for info in pkgutil.iter_modules(__path__):
-            if info.name.startswith("_"):
-                continue
+        for name in SHIPPED_SINKS:
             try:
-                module = importlib.import_module(f"{__name__}.{info.name}")
+                module = importlib.import_module(f"{__name__}.{name}")
                 sink = getattr(module, "SINK", None)
                 if sink is not None:
                     register(sink)
             except Exception:  # noqa: BLE001
-                log.exception("Triage sink %s failed to load", info.name)
+                log.exception("Triage sink %s failed to load", name)
 
 
 def registered() -> list[str]:

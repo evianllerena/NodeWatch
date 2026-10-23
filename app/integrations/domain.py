@@ -20,6 +20,7 @@ import hashlib
 import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
+from urllib.parse import urlparse
 
 SCHEMA_VERSION = 1
 
@@ -68,7 +69,29 @@ def stable_key(*parts: Any) -> str:
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:20]
 
 
+def safe_console_url(value: Any) -> str:
+    """A console deep link only if it is an absolute http(s) URL with a host and no embedded credentials.
+
+    Fragments are allowed: vendor portals route on them (Mist uses ``#!``). Anything else becomes "".
+    """
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        parsed = urlparse(text)
+        host = parsed.hostname
+    except ValueError:
+        return ""
+    if parsed.scheme.lower() not in ("http", "https") or not host or parsed.username or parsed.password:
+        return ""
+    return text
+
+
 class _Record:
+    def __post_init__(self) -> None:
+        if hasattr(self, "console_url"):
+            self.console_url = safe_console_url(self.console_url)  # type: ignore[attr-defined]
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)  # type: ignore[call-overload]
 
@@ -300,6 +323,7 @@ class Route(_Record):
     local: bool | None = None
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         if self.local is None and str(self.protocol or "").lower() in ("connected", "local", "direct", "interface"):
             self.local = True
 

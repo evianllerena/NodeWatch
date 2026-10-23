@@ -244,7 +244,10 @@ def report_start(body: ReportRequest):
     """Start building the topology report (read-only) in the background; poll GET /report/{id}."""
     from app.services import topology_report
 
-    return topology_report.start(**body.model_dump())
+    try:
+        return topology_report.start(**body.model_dump())
+    except topology_report.TooManyJobs as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
 
 
 @router.get("/report/{job_id}")

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from app.core.config import DATA_ROOT, STATE_ROOT
 from app.core.file_utils import write_private_text
+from app.core.security import redact_text
 from app.core.version import APP_VERSION
 from app.services.triage import registry
 from app.services.triage.base import BaseBackend, StoreUnavailableError
@@ -66,8 +67,8 @@ class TriageManager:
                     self._backend = self._build(cfg["backend"], cfg["settings"].get(cfg["backend"], {}))
                     self.error = ""
                 except Exception as exc:  # noqa: BLE001 - never lose triage because a setting broke
-                    log.warning("Triage store %s unusable, using this PC only: %s", cfg["backend"], exc)
-                    self.error = f"{cfg['backend']}: {exc}"[:300]
+                    log.warning("Triage store %s unusable, using this PC only: %s", cfg["backend"], redact_text(exc))
+                    self.error = f"{cfg['backend']}: {redact_text(exc)}"[:300]
                     self._backend = self._build("local", {})
             return self._backend
 

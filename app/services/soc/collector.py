@@ -14,6 +14,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from app.core.security import redact_text
 from app.integrations.contracts import SECURITY_EVENTS
 from app.services.soc.store import EventStore
 
@@ -128,8 +129,8 @@ class Collector:
                     gap = None
             st.update(ok=True, read=len(events), new=new, error="", truncated=truncated, gap=gap)
         except Exception as exc:  # noqa: BLE001 - IntegrationError text is already redacted by the connector
-            st.update(ok=False, read=0, new=0, error=str(exc)[:300], gap=gap)
-            log.info("SOC read of %s failed: %s", c.provider_id, str(exc)[:200])
+            st.update(ok=False, read=0, new=0, error=redact_text(exc)[:300], gap=gap)
+            log.info("SOC read of %s failed: %s", c.provider_id, redact_text(exc)[:200])
         st["ms"] = round((time.monotonic() - started) * 1000)
         st["last_ok"] = now if st.get("ok") else prev.get("last_ok")
         self.status = {**self.status, c.provider_id: st}  # swapped, never mutated while others iterate

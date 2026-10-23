@@ -69,36 +69,56 @@ class PermissionCoverage(unittest.TestCase):
 
 
 class LowFindings(unittest.TestCase):
-    @open_finding
     def test_is_loopback_fails_closed_without_client_info(self):
         from app.core.auth import LocalTokenAuth
 
         self.assertFalse(LocalTokenAuth.is_loopback(_FakeRequest(None)))
 
-    @open_finding
     def test_testclient_sentinel_not_accepted_by_default(self):
         from app.core.auth import LocalTokenAuth
 
         self.assertFalse(LocalTokenAuth.is_loopback(_FakeRequest("testclient")))
 
-    @open_finding
     def test_console_url_only_http_or_https(self):
         from app.integrations.domain import Alert
 
         a = Alert(key="k", source="x", type="t", category="connectivity", severity="info", title="t",
                   console_url="javascript:alert(1)")
-        self.assertFalse(a.console_url.lower().startswith("javascript:"))
+        self.assertEqual(a.console_url, "")
 
-    @open_finding
+    def test_console_url_keeps_vendor_deep_links(self):
+        """Fixed in Phase 1: the check must not drop real links. Mist routes on a '#!' fragment."""
+        from app.integrations.domain import Alert, Device
+
+        mist = "https://manage.mist.com/admin/?org_id=o#!dashboard/insights/s"
+        a = Alert(key="k", source="x", type="t", category="connectivity", severity="info", title="t", console_url=mist)
+        self.assertEqual(a.console_url, mist)
+        for bad in ("data:text/html,x", "//host/x", "https://user:pw@host/", "/relative"):
+            with self.subTest(url=bad):
+                self.assertEqual(Device(key="d", source="x", name="n", console_url=bad).console_url, "")
+
+    def test_topology_eviction_refuses_when_every_slot_is_running(self):
+        from app.services import topology_report as tr
+
+        saved = dict(tr._jobs)
+        try:
+            tr._jobs.clear()
+            for i in range(tr.MAX_JOBS):
+                tr._jobs[f"r{i}"] = {"state": "running", "started": float(i)}
+            with self.assertRaises(tr.TooManyJobs):
+                tr.start()
+            self.assertEqual(sorted(tr._jobs), sorted(f"r{i}" for i in range(tr.MAX_JOBS)))
+        finally:
+            tr._jobs.clear()
+            tr._jobs.update(saved)
+
     def test_soc_collector_and_topology_report_errors_redacted(self):
         self.assertNotRegex(_src("services/soc/collector.py"), r"error=str\(exc\)")
         self.assertNotRegex(_src("services/topology_report.py"), r'job\["error"\] = str\(exc\)')
 
-    @open_finding
     def test_triage_registry_error_redacted(self):
         self.assertNotIn('f"{type(exc).__name__}: {exc}"', _src("services/triage/registry.py"))
 
-    @open_finding
     def test_topology_job_eviction_keeps_running_jobs(self):
         src = _src("services/topology_report.py")
         block = src.split("if len(_jobs) >= MAX_JOBS", 1)[1].split("_jobs[job_id] = job", 1)[0]
@@ -114,7 +134,6 @@ class LowFindings(unittest.TestCase):
         self.assertIn("kSecAttrAccessible", _src("core/macos_keychain.py"))
 
 
-    @open_finding
     def test_missing_configuration_is_not_reported_as_bad_gateway(self):
         """New (test suite): 'not configured' answers 502 Bad Gateway on the test endpoints; it is a 4xx."""
         from tests.support.asgi import Client
@@ -157,11 +176,9 @@ class Cleanup(unittest.TestCase):
 
 
 class DiscoveryAllowlists(unittest.TestCase):
-    @open_finding
     def test_triage_backends_import_from_an_allowlist(self):
         self.assertNotIn("iter_modules", _src("services/triage/registry.py"))
 
-    @open_finding
     def test_triage_sinks_import_from_an_allowlist(self):
         self.assertNotIn("iter_modules", _src("services/triage/sinks/__init__.py"))
 

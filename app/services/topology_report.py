@@ -23,6 +23,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from app.core.security import redact_text
 from app.core.version import APP_VERSION
 
 log = logging.getLogger("nodewatch.topology.report")
@@ -39,6 +40,10 @@ CABLE = {"physical", "lag", "l2", "ha"}
 
 
 # --------------------------------------------------------------------------- jobs
+class TooManyJobs(RuntimeError):
+    """Every job slot holds a report that is still running."""
+
+
 def start(*, scope: str = "org", site: str = "", sites: list[str] | None = None, sections: list[str] | None = None,
           skip_empty: bool = True, mask: bool = False, audience: str = "engineer") -> dict[str, Any]:
     job_id = secrets.token_hex(8)
@@ -62,8 +67,12 @@ def start(*, scope: str = "org", site: str = "", sites: list[str] | None = None,
     }
     with _lock:
         if len(_jobs) >= MAX_JOBS:
-            for old in sorted(_jobs, key=lambda k: _jobs[k]["started"])[: len(_jobs) - MAX_JOBS + 1]:
+            # Evict the oldest finished jobs only; a running job keeps its slot until it ends.
+            finished = sorted((k for k in _jobs if _jobs[k]["state"] != "running"), key=lambda k: _jobs[k]["started"])
+            for old in finished[: len(_jobs) - MAX_JOBS + 1]:
                 _jobs.pop(old, None)
+            if len(_jobs) >= MAX_JOBS:
+                raise TooManyJobs(f"{len(_jobs)} topology reports are already being built; wait for one to finish")
         _jobs[job_id] = job
     threading.Thread(target=_run, args=(job,), name=f"topology-report-{job_id}", daemon=True).start()
     return status(job_id)
@@ -88,7 +97,7 @@ def _run(job: dict[str, Any]) -> None:
     except Exception as exc:  # noqa: BLE001 - shown to the user
         log.exception("Topology report failed")
         job["state"] = "error"
-        job["error"] = str(exc)[:300] or type(exc).__name__
+        job["error"] = redact_text(exc)[:300] or type(exc).__name__
 
 
 # --------------------------------------------------------------------------- build

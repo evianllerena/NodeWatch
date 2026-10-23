@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.core.errors import NotConfiguredError
 from app.core.version import APP_VERSION
 
 import hashlib
@@ -1192,7 +1193,7 @@ def _firewall_evidence(steps: list, result: dict, addrs: list[str], port: int, h
 def _send_splunk(events: list[dict], cfg: dict, on_delivered=None) -> None:
     token = load_secret(DATA_ROOT, SPLUNK_CREDENTIAL_TARGET)
     if not token:
-        raise RuntimeError("Splunk HEC token is not configured")
+        raise NotConfiguredError("Splunk HEC token is not configured")
     endpoint = _normalize_splunk_endpoint(cfg.get("splunk_url") or "")
     context = ssl.create_default_context() if cfg.get("verify_tls", True) else ssl._create_unverified_context()  # noqa: SLF001
     channel = str(uuid.uuid4())
@@ -1217,7 +1218,7 @@ def _send_syslog(events: list[dict], cfg: dict) -> None:
     port = int(cfg.get("syslog_port") or 514)
     protocol = str(cfg.get("syslog_protocol") or "udp").lower()
     if not host:
-        raise RuntimeError("Syslog destination is not configured")
+        raise NotConfiguredError("Syslog destination is not configured")
     lines = [("<134>" + _cef_line(e) + "\n").encode("utf-8", errors="replace") for e in events]
     sock_type = socket.SOCK_DGRAM if protocol == "udp" else socket.SOCK_STREAM
     with socket.socket(socket.AF_INET, sock_type) as sock:

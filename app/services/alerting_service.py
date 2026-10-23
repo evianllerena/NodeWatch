@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.core.errors import NotConfiguredError
 from app.core.version import APP_VERSION
 
 import hashlib
@@ -701,7 +702,7 @@ class _NoRedirect(HTTPRedirectHandler):
 def _send_webhook(alert: dict, cfg: dict) -> None:
     url = load_secret(DATA_ROOT, WEBHOOK_TARGET)
     if not url:
-        raise RuntimeError("Alert webhook URL is not configured")
+        raise NotConfiguredError("Alert webhook URL is not configured")
     body = json.dumps(_webhook_payload(alert, str(cfg.get("webhook_format") or "generic")), default=str).encode("utf-8")
     req = Request(
         url,
