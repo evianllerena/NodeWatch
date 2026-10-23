@@ -59,7 +59,7 @@ jobs:
         shell: pwsh
         run: >
           & "${{ runner.temp }}\nw\NodeWatch\_internal\runtime\python\python.exe" tests\run.py -v --target bundle
-          --root "${{ runner.temp }}\nw\NodeWatch\_internal" --min-tests 66 --report test-result-windows.json
+          --root "${{ runner.temp }}\nw\NodeWatch\_internal" --min-tests 68 --report test-result-windows.json
       - name: Report test results
         if: always()
         run: python tests/tools/annotate.py test-result-windows.json
@@ -98,7 +98,7 @@ jobs:
         run: |
           rm -rf "$RUNNER_TEMP/check" && ditto -x -k dist/*.zip "$RUNNER_TEMP/check"
           I="$RUNNER_TEMP/check/NodeWatch.app/Contents/Resources/_internal"
-          "$I/runtime-macos/python-arm64/bin/python3.12" tests/run.py -v --target bundle --root "$I" --min-tests 66 --report test-result-macos.json
+          "$I/runtime-macos/python-arm64/bin/python3.12" tests/run.py -v --target bundle --root "$I" --min-tests 68 --report test-result-macos.json
       - name: Report test results
         if: always()
         run: python3 tests/tools/annotate.py test-result-macos.json
@@ -123,6 +123,10 @@ jobs:
           done
           pkill -f "NodeWatch.app" || true
           case "$found" in *'${{ needs.build-id.outputs.id }}'*) ;; *) echo "backend did not answer as this build"; exit 1;; esac
+          port=${found%% *}
+          page=$(curl -s --max-time 5 "http://127.0.0.1:$port/static/core.js" | grep -o "FRONTEND_BUILD = '[^']*'" || true)
+          echo "::notice title=macOS page::$page"
+          case "$page" in *'${{ needs.build-id.outputs.id }}'*) ;; *) echo "page build differs from backend build"; exit 1;; esac
       - uses: actions/upload-artifact@v4
         with:
           name: macos

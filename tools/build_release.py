@@ -94,7 +94,16 @@ def new_internal_files(current: dict[str, bytes], build: str) -> tuple[dict[str,
     version = new["app/core/version.py"].decode("utf-8")
     if f'APP_BUILD = "{SHIPPED_BUILD}"' not in version or f'APP_VERSION = "{SHIPPED_VERSION}"' not in version:
         raise SystemExit("app/core/version.py no longer holds the v0.10.42 version and build")
-    new["app/core/version.py"] = version.replace(SHIPPED_BUILD, build).encode("utf-8")
+    # The build id is written in the backend (version.py) and the page (static/core.js FRONTEND_BUILD, compared
+    # with the backend's on every status read). Replace it in every app file that carries it, and require both.
+    stamped = []
+    for rel in sorted(new):
+        if rel.startswith("app/") and not rel.startswith("app/bin/") and SHIPPED_BUILD.encode() in new[rel]:
+            new[rel] = new[rel].replace(SHIPPED_BUILD.encode(), build.encode())
+            stamped.append(rel)
+    if not {"app/core/version.py", "app/static/core.js"} <= set(stamped):
+        raise SystemExit(f"build id not found where expected; stamped: {stamped}")
+    report.append(f"build id {build} written to: {', '.join(stamped)}")
     old_manifest = json.loads(current["integrity.json"])
     order = [r for r in old_manifest["files"] if r in new] + sorted(r for r in new if listed(r) and r not in old_manifest["files"])
     manifest = {"build": build, "files": {r: sha256(new[r]) for r in order if listed(r)}}
