@@ -97,10 +97,10 @@ Start-Sleep -Seconds 10
 Get-Process | Where-Object { $_.Name -match "NodeWatch|python|nwhost" } | Stop-Process -Force -ErrorAction SilentlyContinue
 
 # 3. Other switches
-foreach ($arg in @("/?", "/help", "--help")) {
+$(foreach ($arg in @("/?", "/help", "--help")) {
   $p = Start-Process -FilePath $Installer -ArgumentList $arg -PassThru
   if (-not $p.WaitForExit(8000)) { $p | Stop-Process -Force; "$arg : still running after 8 s (killed)" } else { "$arg : exit $($p.ExitCode)" }
-} | Set-Content (Join-Path $Out "3-switches.txt")
+}) | Set-Content (Join-Path $Out "3-switches.txt")
 Get-Process | Where-Object { $_.Name -match "NodeWatch|python|nwhost" } | Stop-Process -Force -ErrorAction SilentlyContinue
 
 # 4. Interactive run over an existing install
