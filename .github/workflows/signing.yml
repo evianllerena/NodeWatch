@@ -86,7 +86,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path ms | Out-Null
           Invoke-WebRequest -Uri https://github.com/jedisct1/minisign/releases/download/0.12/minisign-0.12-win64.zip -OutFile ms\minisign.zip
           Expand-Archive ms\minisign.zip -DestinationPath ms -Force
-          $m = Get-ChildItem ms -Recurse -Filter minisign.exe | Select-Object -First 1
+          $m = Get-ChildItem ms -Recurse -Filter minisign.exe | Where-Object { $_.FullName -notmatch "aarch64|arm64" } | Select-Object -First 1
           if (-not $m) { throw "minisign.exe not found in: $((Get-ChildItem ms -Recurse).Name -join ', ')" }
           $out = & $m.FullName -Vm work\NodeWatch.exe -p work\minisign.pub 2>&1 | Out-String
           Write-Output "::notice title=minisign (exit $LASTEXITCODE)::$($out -replace "`r?`n",'%0A')"
