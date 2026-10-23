@@ -21,12 +21,15 @@ jobs:
       - name: Record the shipped installer
         shell: pwsh
         run: ./tools/installer_parity.ps1 -Installer shipped\v0.10.42\NodeWatch-windows-installer.exe -Out parity
-      - name: Report
+      - name: Report (part 1)
         if: always()
         shell: pwsh
-        run: |
-          Get-ChildItem parity -File | ForEach-Object {
-            $t = (Get-Content $_.FullName -Raw) -replace '%','%25' -replace "`r",'' -replace "`n",'%0A'
-            if ($t.Length -gt 3500) { $t = $t.Substring(0, 3500) }
-            Write-Output "::notice title=$($_.Name)::$t"
-          }
+        run: ./tools/installer_parity.ps1 -Report parity -Pattern '^[0-2]'
+      - name: Report (part 2)
+        if: always()
+        shell: pwsh
+        run: ./tools/installer_parity.ps1 -Report parity -Pattern '^[3-4]'
+      - name: Report (part 3)
+        if: always()
+        shell: pwsh
+        run: ./tools/installer_parity.ps1 -Report parity -Pattern '^5'

@@ -1,8 +1,20 @@
 # Black-box record of a Windows installer's behaviour (run on a clean GitHub Windows runner).
 # Writes text files into -Out: what changed on disk and in HKCU, exit codes, processes it started, and the
 # windows (titles, buttons, texts) it shows when run interactively.
-param([Parameter(Mandatory)] [string] $Installer, [Parameter(Mandatory)] [string] $Out)
+param([string] $Installer, [string] $Out, [string] $Report, [string] $Pattern = ".")
 $ErrorActionPreference = "Continue"
+if ($Report) {
+  # Each file as notices of at most 3,500 characters (GitHub shows 10 notices per step).
+  Get-ChildItem $Report -File | Where-Object { $_.Name -match $Pattern } | ForEach-Object {
+    $t = (Get-Content $_.FullName -Raw)
+    if (-not $t) { $t = "(empty)" }
+    $t = $t -replace '%','%25' -replace "`r",'' -replace "`n",'%0A'
+    for ($i = 0; $i -lt [Math]::Min($t.Length, 7000); $i += 3500) {
+      Write-Output "::notice title=$($_.Name) [$($i / 3500 + 1)]::$($t.Substring($i, [Math]::Min(3500, $t.Length - $i)))"
+    }
+  }
+  exit 0
+}
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
 $Installer = (Resolve-Path $Installer).Path
 
@@ -105,3 +117,35 @@ Get-Process | Where-Object { $_.Name -match "NodeWatch|python|nwhost" } | Stop-P
 
 # 4. Interactive run over an existing install
 Record-UI "4-interactive-installed-ui.txt"
+
+# 5. Walk the wizard on a clean profile folder: record each page, then press Enter (the default button)
+Get-Process | Where-Object { $_.Name -match "NodeWatch|python|nwhost" } | Stop-Process -Force -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Programs\NodeWatch" -ErrorAction SilentlyContinue
+Remove-Item -Force "$env:USERPROFILE\Desktop\NodeWatch.lnk", "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\NodeWatch.lnk" -ErrorAction SilentlyContinue
+$f5 = Snap-Files; $r5 = Snap-Reg
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+$wsh = New-Object -ComObject WScript.Shell
+$p = Start-Process -FilePath $Installer -PassThru
+$pages = @()
+for ($step = 1; $step -le 10 -and -not $p.HasExited; $step++) {
+  Start-Sleep -Seconds 3
+  $root = [System.Windows.Automation.AutomationElement]::RootElement
+  $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ProcessIdProperty, $p.Id)
+  $texts = @()
+  foreach ($w in $root.FindAll([System.Windows.Automation.TreeScope]::Children, $cond)) {
+    $texts += "WINDOW '$($w.Current.Name)'"
+    foreach ($c in $w.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)) {
+      if ($c.Current.Name) { $texts += "  '$($c.Current.Name)'" }
+    }
+  }
+  $pages += "--- page $step"; $pages += $texts
+  [void]$wsh.AppActivate($p.Id); Start-Sleep -Milliseconds 500; $wsh.SendKeys("{ENTER}")
+}
+Start-Sleep -Seconds 10
+$pages += $(if ($p.HasExited) { "installer exited with $($p.ExitCode)" } else { "installer still running" })
+$pages += "processes now: " + ((Get-CimInstance Win32_Process | Where-Object { $_.Name -match "NodeWatch|python|nwhost|msedge" } | ForEach-Object { $_.Name }) -join ", ")
+$pages | Set-Content (Join-Path $Out "5-wizard-pages.txt")
+Diff $f5 (Snap-Files) "5-wizard-files.txt"
+Diff $r5 (Snap-Reg) "5-wizard-registry.txt"
+Get-Process | Where-Object { $_.Name -match "NodeWatch|python|nwhost|msedge" } | Stop-Process -Force -ErrorAction SilentlyContinue
+if (-not $p.HasExited) { $p | Stop-Process -Force }
