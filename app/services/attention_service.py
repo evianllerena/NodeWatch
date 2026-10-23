@@ -596,6 +596,8 @@ def team_summary() -> dict:
         "writable": h.get("writable", True),
         "last_sync": h.get("last_sync"),
         "pending": h.get("pending", 0),
+        # "unavailable": the share does not keep file owners, so who wrote an entry is not verified.
+        "owner_check": h.get("owner_check", ""),
         "users": len(h.get("users") or []),
         "last_error": h.get("last_error", ""),
         "me": store.actor(),

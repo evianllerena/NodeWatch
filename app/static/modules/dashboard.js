@@ -421,7 +421,7 @@ window.MistTools.dashboard = (() => {
     if (!t.shared) return '';
     if (t.mode === 'offline') return `Team triage offline — ${fmtN(t.pending)} waiting to sync`;
     if (t.mode === 'read_only') return 'Team triage: read-only for you';
-    return `Team triage: ${t.label || 'shared'}${t.last_sync ? ` · synced ${ago(t.last_sync * 1000)} ago` : ''}`;
+    return `Team triage: ${t.label || 'shared'}${t.last_sync ? ` · synced ${ago(t.last_sync * 1000)} ago` : ''}${t.owner_check === 'unavailable' ? ' · names not verified' : ''}`;
   }
 
   function assigneeChip(i) {
@@ -491,6 +491,7 @@ window.MistTools.dashboard = (() => {
     return `<section class="attn-sec attn-team" data-ui="Command Center › Incident details › Team">
       <h4>Team <small>${escapeHtml(where)}</small></h4>
       ${store.writable === false ? '<div class="notice warning">The shared triage folder is read-only for you: you see your team’s triage, but your own actions cannot be saved. See Settings › Team triage.</div>' : ''}
+      ${store.shared && store.owner_check === 'unavailable' ? '<div class="notice warning">This shared folder does not keep Windows file owners, so who wrote each entry below cannot be verified. See Settings › Team triage.</div>' : ''}
       ${!store.shared ? '<p class="muted attn-team-hint">Assignments and notes stay on this PC. Share them with your team under Settings › Team triage.</p>' : ''}
       <div class="attn-team-assign"><span class="attn-team-label">Assigned</span><div class="attn-team-chips">${assignees || '<span class="muted">Nobody yet</span>'}</div>
         <div class="attn-team-btns"><button type="button" class="btn ghost small" data-team="assign-me">Assign to me</button><button type="button" class="btn ghost small" data-team="assign-menu" aria-haspopup="menu">Assign… ▾</button>${(t.assignees || []).length ? '<button type="button" class="btn ghost small" data-team="unassign">Unassign</button>' : ''}</div></div>

@@ -85,6 +85,19 @@ class PermissionCoverage(unittest.TestCase):
             main.AUTH_PROVIDER.authenticate = real
 
 
+class OwnerCheckDisclosure(unittest.TestCase):
+    """Medium (fixed in Phase 1): an unverifiable shared triage folder is disclosed where people act, not only in Settings."""
+
+    def test_team_summary_carries_owner_check(self):
+        from app.services import attention_service
+
+        self.assertIn("owner_check", attention_service.team_summary())
+
+    def test_command_center_shows_it(self):
+        js = _src("static/modules/dashboard.js")
+        self.assertEqual(js.count("owner_check === 'unavailable'"), 2)  # header line and incident Team section
+
+
 # ------------------------------------------------------------------ review: Low
 
 
