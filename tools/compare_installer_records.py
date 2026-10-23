@@ -18,7 +18,6 @@ VERSION = re.compile(r"\b0\.10\.\d{2}\b")
 
 # Differences that are expected, with the reason.
 ALLOWED = {
-    "5-wizard-pages.txt": "the progress line on the Installing page shows other step names while files are copied",
     "1-silent-files.txt": "_internal sizes change with every release",
     "5-wizard-files.txt": "the started app writes its browser cache; only NodeWatch lines outside it are compared",
 }
@@ -34,7 +33,7 @@ def norm(name: str, text: str) -> list[str]:
         line = re.sub(r"\|\d+$", "|<size>", line)  # file sizes
         line = re.sub(r"files under _internal: \d+, \d+ bytes", "files under _internal: <n>", line)
         line = re.sub(r"processes now: .*", "processes now: <started>", line)
-        if "files" in name or "registry" in name:
+        if "files" in name or "registry" in name or "processes" in name:
             low = line.lower()
             if "nodewatch" not in low or "\\app-window\\" in low or "\\pycache\\" in low or "\\logs\\" in low or "\\state\\" in low:
                 if not line.startswith(("ADDED", "REMOVED")):
@@ -43,8 +42,9 @@ def norm(name: str, text: str) -> list[str]:
                 line = re.sub(r"\(\d+\)", "", line)
             if "MuiCache" in line or "\\UFH\\" in line or "App Paths" in line:
                 continue  # written by Windows / the app at run time, not by the installer
-        if "pages" in name and line.strip().startswith("'") and line.strip().endswith("…'"):
-            continue  # progress text
+        if "pages" in name and (line.startswith("--- page") or line.strip() in ("'Installing NodeWatch'",)
+                                or (line.strip().startswith("'") and line.strip().endswith("…'"))):
+            continue  # page numbers and the Installing page depend on timing; the pages' texts must all be there
         if line.strip():
             lines.append(line)
     return lines
@@ -64,6 +64,8 @@ def main() -> int:
         if x == y:
             print(f"same    {name}")
             continue
+        if "pages" in name:
+            x, y = sorted(set(x)), sorted(set(y))
         only_old = [l for l in x if l not in y]
         only_new = [l for l in y if l not in x]
         if not only_old and not only_new:

@@ -58,6 +58,7 @@ var (
 	procLoadIconW            = user32.NewProc("LoadIconW")
 	procGetSysColorBrush     = user32.NewProc("GetSysColorBrush")
 	procSetFocus             = user32.NewProc("SetFocus")
+	procIsWindowEnabled      = user32.NewProc("IsWindowEnabled")
 	procGetModuleHandleW     = kernel32.NewProc("GetModuleHandleW")
 	procCreateFontW          = gdi32.NewProc("CreateFontW")
 	procSHBrowseForFolderW   = shell32.NewProc("SHBrowseForFolderW")
@@ -229,7 +230,8 @@ func (w *wizard) run() {
 	w.hwnd, _, _ = procCreateWindowExW.Call(0, uintptr(unsafe.Pointer(utf16("NodeWatchSetup"))),
 		uintptr(unsafe.Pointer(utf16(title()))), wsOverlapped|wsCaption|wsSysMenu|wsMinimizeBox,
 		(sw-width)/2, (sh-height)/2, width, height, 0, 0, inst, 0)
-	// The product panel on the left and the buttons stay on every page.
+	// The panel on the left (an empty frame with the product name on it) and the buttons stay on every page.
+	w.label(0, 0, 175, 400, "", 0, true)
 	w.label(18, 30, 150, 120, fmt.Sprintf("%s\n%s\n\nVersion %s", appName, tagline, appVersion), w.bold, true)
 	w.back = w.button(idBack, 250, 320, 85, 28, "< Back", false)
 	w.next = w.button(idNext, 340, 320, 85, 28, "Next >", true)
@@ -316,7 +318,7 @@ func (w *wizard) showPage(p int) {
 	case 0:
 		w.label(x, 30, 340, 30, "Welcome to NodeWatch", w.big, false)
 		text := fmt.Sprintf("This installs %s %s for your Windows account.\n\nNo administrator rights and no internet connection are needed, and nothing else has to be installed first.", appName, appVersion)
-		if loc := installedLocation(); loc != "" && looksLikeNodeWatch(loc) {
+		if loc := installedLocation(); loc != "" {
 			text += fmt.Sprintf("\n\nNodeWatch is already installed in\n%s\nIt will be updated; your settings and backups are kept.", loc)
 		}
 		text += "\n\nClick Next to continue."
@@ -362,7 +364,18 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 	w := wiz
 	switch message {
 	case wmCommand:
-		switch int(wParam & 0xFFFF) {
+		id := int(wParam & 0xFFFF)
+		switch id {
+		case 1: // IDOK: Enter presses the default button
+			if r, _, _ := procIsWindowEnabled.Call(w.next); r != 0 {
+				id = idNext
+			}
+		case 2: // IDCANCEL: Esc
+			if w.page < 2 {
+				id = idCancel
+			}
+		}
+		switch id {
 		case idCancel:
 			w.askCancel()
 		case idBack:
