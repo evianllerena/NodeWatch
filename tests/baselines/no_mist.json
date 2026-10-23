@@ -15,8 +15,6 @@
   "/api/detective/troubleshoot": "needs_input",
   "/api/integrations": "ok",
   "/api/modules": "ok",
-  "/api/platform-overview/content": "locked",
-  "/api/platform-overview/lock": "ok",
   "/api/settings": "ok",
   "/api/status": "ok",
   "/api/system/keep-running": "ok",

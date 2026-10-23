@@ -1912,25 +1912,6 @@ window.MistTools.dashboard = (() => {
     }, 350);
   }
 
-  async function renderRoadmap() {
-    const host = document.querySelector('#platformOverviewContent');
-    if (!host) return;
-    const content = await getJSON('/api/platform-overview/content');
-    const roadmap = content.roadmap || [];
-    const core = content.shared_core || {};
-    const steps = content.write_safety || [];
-    host.innerHTML = `
-      <div class="card content-card">
-        <div class="section-heading compact"><div><div class="eyebrow">Product roadmap</div><h3>Network Operations Platform</h3></div><span class="roadmap-principle">${escapeHtml(content.principle || '')}</span></div>
-        <p class="muted">Shared operational modules use one normalized data model, cache, transaction safety layer, and audit service.</p>
-        <div class="roadmap-grid">${roadmap.map((x, i) => `<article class="roadmap-card"><div class="roadmap-top"><span class="roadmap-icon">${x.icon}</span><span class="roadmap-status">${escapeHtml(x.status)}</span></div><strong>${i + 2}. ${escapeHtml(x.label)}</strong><span class="roadmap-category">${escapeHtml(x.category)}</span><p>${escapeHtml(x.description)}</p></article>`).join('')}</div>
-      </div>
-      <div class="architecture-grid">
-        <section class="card noc-panel"><div class="eyebrow">Shared core</div><h3>One data layer for every tool</h3><div class="architecture-flow"><div class="arch-node primary-node">${escapeHtml(core.source || 'Provider APIs / Webhooks')}</div><div class="arch-arrow">↓</div><div class="arch-node">${escapeHtml(core.data_layer || 'Shared Client + Cache')}</div><div class="arch-arrow">↓</div><div class="arch-row">${(core.services || []).map((x) => `<span>${escapeHtml(x)}</span>`).join('')}</div><div class="arch-arrow">↓</div><div class="arch-row">${(core.consumers || []).map((x) => `<span>${escapeHtml(x)}</span>`).join('')}</div></div></section>
-        <section class="card noc-panel"><div class="eyebrow">Write safety</div><h3>All changes become transactions</h3><ol class="transaction-list">${steps.map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ol></section>
-      </div>`;
-  }
-
   async function init() {
     // v0.10.40: the data request starts first and the alerts panel loads alongside it (it used to wait
     // for the Command Center data); the controls are wired straight away and init settles when the
@@ -2048,12 +2029,5 @@ window.MistTools.dashboard = (() => {
   }
 
   // Dashboard owns its tighter 20-second refresh cadence; avoid a duplicate global refresh.
-  return { init, refresh, autoRefresh: async () => {}, renderRoadmap };
+  return { init, refresh, autoRefresh: async () => {} };
 })();
-
-window.MistTools['future-tools'] = {
-  init: async () => {
-    const m = window.MistTools.dashboard;
-    if (m?.renderRoadmap) await m.renderRoadmap();
-  },
-};

@@ -23,8 +23,6 @@
   "POST /api/integrations/strata-logging/reset": "settings.admin",
   "POST /api/integrations/strata-logging/test": "settings.admin",
   "POST /api/integrations/strata-logging/ui-event": "none",
-  "POST /api/platform-overview/lock/configure": "settings.admin",
-  "POST /api/platform-overview/lock/verify": "none",
   "POST /api/settings/open-data-folder": "none",
   "POST /api/settings/reset": "settings.admin",
   "POST /api/settings/save": "settings.admin",

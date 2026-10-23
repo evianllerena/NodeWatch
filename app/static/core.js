@@ -99,11 +99,6 @@ const PAGE_META = {
     'Settings & Support',
     'Manage connections, credentials, persistent data, preferences, and diagnostics.',
   ],
-  'future-tools': [
-    'Platform',
-    'Platform Overview',
-    'Architecture, safeguards, capabilities, and roadmap status.',
-  ],
 };
 
 let initialized = new Set();
@@ -243,86 +238,6 @@ async function refreshConnectionStatus(test = false) {
   }
 }
 
-async function ensurePlatformUnlocked() {
-  try {
-    const state = await getJSON('/api/platform-overview/lock');
-    if (state && state.locked === false) return true;
-  } catch {
-    return false;
-  }
-  const dlg = document.querySelector('#platformLockDialog');
-  const note = document.querySelector('#platformLockNote');
-  const keyInput = document.querySelector('#platformUnlockPin');
-  const submit = document.querySelector('#platformUnlockBtn');
-  const close = document.querySelector('#platformLockClose');
-  const cancel = document.querySelector('#platformLockCancel');
-  if (!dlg || !note || !keyInput || !submit) return false;
-  note.textContent = 'Owner access only. Enter the private NodeWatch owner key.';
-  keyInput.value = '';
-  keyInput.disabled = false;
-  submit.disabled = false;
-  return await new Promise((resolve) => {
-    let settled = false;
-    const finish = (ok) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve(ok);
-    };
-    const cleanup = () => {
-      submit.onclick = null;
-      if (close) close.onclick = null;
-      if (cancel) cancel.onclick = null;
-      dlg.removeEventListener('cancel', onCancel);
-      dlg.removeEventListener('close', onClose);
-    };
-    const closeDialog = () => {
-      if (dlg.open) dlg.close();
-      finish(false);
-    };
-    const onCancel = (e) => {
-      e.preventDefault();
-      closeDialog();
-    };
-    const onClose = () => finish(false);
-    if (close) close.onclick = closeDialog;
-    if (cancel) cancel.onclick = closeDialog;
-    dlg.addEventListener('cancel', onCancel);
-    dlg.addEventListener('close', onClose, { once: true });
-    submit.onclick = async () => {
-      submit.disabled = true;
-      try {
-        const r = await fetch('/api/platform-overview/lock/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ owner_key: keyInput.value }),
-        });
-        let body = {};
-        try {
-          body = await r.json();
-        } catch {}
-        if (!r.ok) throw new Error(body.detail || `HTTP ${r.status}`);
-        cleanup();
-        if (dlg.open) dlg.close();
-        settled = true;
-        resolve(true);
-      } catch (err) {
-        note.textContent = err.message;
-        submit.disabled = false;
-        keyInput.select();
-      }
-    };
-    keyInput.onkeydown = (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        submit.click();
-      }
-    };
-    dlg.showModal();
-    setTimeout(() => keyInput.focus(), 50);
-  });
-}
-
 // Pages that were merged into another page: old links and bookmarks land on the new spot.
 const MERGED_TOOLS = { alerting: ['dashboard', '#nocAlerts'] };
 
@@ -431,9 +346,7 @@ async function nwRestoreHistory(state) {
   nwRestoring = true;
   try {
     // Transient dialogs (port details, detection details, confirmations) close on Back.
-    document.querySelectorAll('dialog[open]').forEach((d) => {
-      if (d.id !== 'platformLockDialog') d.close();
-    });
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
     const hash = location.hash.replace('#', '');
     const tool = state?.nw ? state.tool : hash || 'dashboard';
     if (tool !== activeToolId || !initialized.has(tool)) await openTool(tool, false);
@@ -468,7 +381,6 @@ async function openTool(id, updateHash = true) {
   const merged = MERGED_TOOLS[id];
   if (merged) id = merged[0];
   if (!document.querySelector(`#view-${id}`)) id = 'dashboard';
-  if (id === 'future-tools' && !(await ensurePlatformUnlocked())) return;
   activeToolId = id;
   document.querySelectorAll('.tool-view').forEach((v) => v.classList.toggle('hidden', v.id !== `view-${id}`));
   document.querySelectorAll('.nav-item').forEach((n) => n.classList.toggle('active', n.dataset.tool === id));

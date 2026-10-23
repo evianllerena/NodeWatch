@@ -3,20 +3,10 @@ from __future__ import annotations
 import hmac
 import re
 import secrets
-import threading
-import time
 from typing import Any
 from urllib.parse import urlparse
 
 WRITE_REQUEST_TOKEN = secrets.token_urlsafe(32)
-OWNER_SESSION_COOKIE = "nodewatch_owner"
-
-OWNER_SESSION_IDLE_SECONDS = 30 * 60
-OWNER_SESSION_MAX_SECONDS = 8 * 60 * 60
-
-# token -> (created_at, last_used_at) on the monotonic clock
-_owner_sessions: dict[str, tuple[float, float]] = {}
-_owner_sessions_lock = threading.Lock()
 
 _SENSITIVE_KEY = re.compile(
     r"(^|[_-])(token|secret|password|passwd|passphrase|psk|pre[_-]?shared[_-]?key|private[_-]?key|api[_-]?key|auth[_-]?key|enc[_-]?key|community|credential|authorization)([_-]|$)",
@@ -80,43 +70,6 @@ def contains_secret_material(value: Any, *known_secrets: str) -> bool:
         if secret and len(secret) >= 4 and secret in text:
             return True
     return redact_text(text, *known_secrets) != text
-
-
-def _prune_owner_sessions(now: float) -> None:
-    for token, (created, last_used) in list(_owner_sessions.items()):
-        if now - last_used > OWNER_SESSION_IDLE_SECONDS or now - created > OWNER_SESSION_MAX_SECONDS:
-            _owner_sessions.pop(token, None)
-
-
-def create_owner_session() -> str:
-    token = secrets.token_urlsafe(32)
-    now = time.monotonic()
-    with _owner_sessions_lock:
-        _prune_owner_sessions(now)
-        _owner_sessions[token] = (now, now)
-    return token
-
-
-def valid_owner_session(token: str | None) -> bool:
-    """True for a live owner session; sessions expire after 30 min idle or 8 h total."""
-    if not token:
-        return False
-    now = time.monotonic()
-    with _owner_sessions_lock:
-        _prune_owner_sessions(now)
-        # Compare in constant time against known tokens. The set is normally tiny.
-        for candidate, (created, _) in _owner_sessions.items():
-            if hmac.compare_digest(token, candidate):
-                _owner_sessions[candidate] = (created, now)
-                return True
-    return False
-
-
-def revoke_owner_session(token: str | None) -> None:
-    if not token:
-        return
-    with _owner_sessions_lock:
-        _owner_sessions.pop(token, None)
 
 
 def redact_sensitive(value: Any) -> Any:

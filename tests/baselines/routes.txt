@@ -16,8 +16,6 @@ GET /api/detective/traffic
 GET /api/detective/troubleshoot
 GET /api/integrations
 GET /api/modules
-GET /api/platform-overview/content
-GET /api/platform-overview/lock
 GET /api/settings
 GET /api/status
 GET /api/system/keep-running
@@ -89,8 +87,6 @@ POST /api/integrations/strata-logging/enable
 POST /api/integrations/strata-logging/reset
 POST /api/integrations/strata-logging/test
 POST /api/integrations/strata-logging/ui-event
-POST /api/platform-overview/lock/configure
-POST /api/platform-overview/lock/verify
 POST /api/settings/open-data-folder
 POST /api/settings/reset
 POST /api/settings/save

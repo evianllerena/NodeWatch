@@ -16,7 +16,7 @@ Bundle mode never writes `__pycache__` into the install, because the launcher wo
 | File | What it proves |
 | --- | --- |
 | `test_discovery.py` | All 6 connectors and 3 triage backends load. An unlisted connector package is refused and never imported |
-| `test_api_smoke.py` | Token, loopback, cross-site and body-size rules hold. All 134 routes are known (`baselines/routes.txt`). No route answers 5xx on a fresh install |
+| `test_api_smoke.py` | Token, loopback, cross-site and body-size rules hold. All 130 routes are known (`baselines/routes.txt`). No route answers 5xx on a fresh install |
 | `test_ui_assets.py` | The page renders, and every `/static` file it or its scripts reference exists |
 | `test_security_fixes.py` | Regression tests for the closed baseline findings: redaction, HEC https, UTF-16 XXE guard, pinned requirements |
 | `test_integrity.py` | Bundle: every file matches `integrity.json` and nothing unlisted hides in `app/` or `runtime/`. Source: no v0.10.42 file vanished unannounced |

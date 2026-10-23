@@ -504,12 +504,6 @@
             <dl class="settings-info"><dt>Settings</dt><dd id="settingsDataPath">%LOCALAPPDATA%\NodeWatch</dd><dt>API Token</dt><dd id="settingsCredentialStore">Windows Credential Manager</dd><dt>Application folder</dt><dd>Replaceable on every upgrade</dd></dl>
             <div class="editor-actions"><button id="settingsOpenData" class="btn secondary">Open Data Folder</button><button id="settingsReset" class="btn ghost">Reset Connection</button></div>
           </section>
-          <section class="card content-card owner-access-card" data-settings-tab="support" data-settings-order="3" data-ui="Settings &amp; Support › Platform Overview Lock">
-            <div class="section-heading compact"><div><div class="eyebrow">Owner access</div><h3>Platform Overview Lock</h3></div><span id="platformLockState" class="count">Checking…</span></div>
-            <p class="muted">Platform Overview is pre-enrolled with an owner access key that is not included in distributed copies. Testers cannot create or reset the owner credential from the application. Rotation requires the current owner key.</p>
-            <div class="owner-pin-grid"><label>Current owner key <input id="platformCurrentPin" type="password" autocomplete="off" placeholder="Required to rotate the key"></label><label>New owner key <input id="platformNewPin" type="password" autocomplete="new-password" placeholder="16–128 characters"></label><label>Confirm new key <input id="platformConfirmPin" type="password" autocomplete="new-password"></label></div>
-            <div class="editor-actions left"><button id="platformPinSave" class="btn secondary" type="button">Rotate Owner Key</button></div>
-          </section>
           <section class="card content-card" data-settings-tab="support" data-settings-order="1" data-ui="Settings &amp; Support › Simple support workflow">
             <div class="eyebrow">Support</div><h3>Simple support workflow</h3>
             <p class="muted">If something is slow or fails, use the diagnostics files in the persistent data folder. They contain sanitized API timing and local application records. Integration credentials, access tokens, and authorization headers are excluded.</p>
@@ -518,9 +512,6 @@
         </div>
       </section>
 
-      <section id="view-future-tools" class="tool-view hidden">
-        <div id="platformOverviewContent"><div class="card content-card" data-ui="Platform Overview › Content"><div class="eyebrow">Owner access</div><h3>Loading protected platform information…</h3></div></div>
-      </section>
     </main>
   </div>
 
@@ -540,8 +531,6 @@
   <dialog id="nocListDialog" class="dialog wide"><form method="dialog"><div class="dialog-head"><div><div class="eyebrow">Disconnect Watch</div><h3 id="nocListTitle"></h3></div><button class="icon-btn" value="cancel" aria-label="Close">×</button></div><p class="muted" id="nocListHelp"></p><div id="nocListBody" class="noc-list"></div><div class="dialog-actions"><button class="btn primary">Close</button></div></form></dialog>
 
   <dialog id="knownDownDialog" class="dialog"><form method="dialog"><div class="dialog-head"><div><div class="eyebrow">Local disconnect filter</div><h3>Known Down Devices</h3></div><button class="icon-btn" value="cancel">×</button></div><p class="muted">Known-down devices stay out of Disconnect Watch and local disconnect notifications until restored. Network state is not changed.</p><div id="knownDownList" class="dismissed-list"></div><div class="dialog-actions"><button id="restoreAllKnownDown" type="button" class="btn ghost hidden">Restore All</button><button class="btn primary">Done</button></div></form></dialog>
-
-  <dialog id="platformLockDialog" class="dialog platform-lock-dialog"><form><div class="dialog-head"><div><div class="eyebrow">Owner access</div><h3>Platform Overview Locked</h3></div><button id="platformLockClose" type="button" class="icon-btn" aria-label="Close">×</button></div><p id="platformLockNote" class="muted">Enter the owner access key to continue.</p><label class="platform-pin-field">Owner access key<input id="platformUnlockPin" type="password" autocomplete="off"></label><div class="dialog-actions"><button id="platformLockCancel" type="button" class="btn ghost">Cancel</button><button id="platformUnlockBtn" type="button" class="btn primary">Unlock</button></div></form></dialog>
 
   <dialog id="auditDetailDialog" class="dialog wide"><form method="dialog"><div class="dialog-head"><div><div class="eyebrow">Audit details</div><h3 id="auditDetailTitle">Audit Record</h3></div><button class="icon-btn">×</button></div><div id="auditDetailBody" class="nw-detail"></div><div class="dialog-actions"><button class="btn primary">Close</button></div></form></dialog>
 

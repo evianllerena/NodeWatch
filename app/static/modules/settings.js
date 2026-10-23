@@ -352,52 +352,6 @@ async function exitNodeWatch() {
   setTimeout(() => window.close(), 400);
 }
 
-async function loadPlatformLock() {
-  const state = document.querySelector('#platformLockState');
-  if (!state) return;
-  try {
-    await api('/api/platform-overview/lock');
-    state.textContent = 'Owner key enrolled · Overview locked';
-  } catch {
-    state.textContent = 'Lock status unavailable';
-  }
-}
-
-async function savePlatformPin() {
-  const current = document.querySelector('#platformCurrentPin')?.value || '';
-  const pin = document.querySelector('#platformNewPin')?.value || '';
-  const confirmPin = document.querySelector('#platformConfirmPin')?.value || '';
-  if (!current) {
-    showResult('Current owner access key is required to rotate the key.', false);
-    return;
-  }
-  if (!pin || pin.length < 16) {
-    showResult('New owner access key must be at least 16 characters.', false);
-    return;
-  }
-  if (pin !== confirmPin) {
-    showResult('Owner key confirmation does not match.', false);
-    return;
-  }
-  try {
-    await api('/api/platform-overview/lock/configure', {
-      method: 'POST',
-      body: JSON.stringify({ current_key: current, owner_key: pin }),
-    });
-    showResult(
-      'Owner access key rotated. Keep the new key private; distributed users cannot reset it without the current key.',
-      true,
-    );
-    ['#platformCurrentPin', '#platformNewPin', '#platformConfirmPin'].forEach((q) => {
-      const e = document.querySelector(q);
-      if (e) e.value = '';
-    });
-    await loadPlatformLock();
-  } catch (err) {
-    showResult(`Unable to rotate owner key: ${err.message}`, false);
-  }
-}
-
 let slsBusy = false;
 
 async function recordSlsUiEvent(event, enabled) {
@@ -852,8 +806,7 @@ function wireSettingsTabs() {
 
 async function init() {
   wireSettingsTabs();
-  // v0.10.40: settings, themes and the platform lock are independent: request them together.
-  const lockLoaded = loadPlatformLock();
+  // v0.10.40: settings and themes are independent: request them together.
   await Promise.all([load(), renderThemeChoices()]);
   wireAppearanceControls();
   const namesToggle = document.querySelector('#uiLabelsToggle');
@@ -895,10 +848,8 @@ async function init() {
       if (btn) btn.disabled = false;
     }
   });
-  document.querySelector('#platformPinSave')?.addEventListener('click', savePlatformPin);
   document.querySelector('#settingsExitApp')?.addEventListener('click', exitNodeWatch);
   wireKeepRunning();
-  await lockLoaded;
 }
 
 window.MistTools.settings = {

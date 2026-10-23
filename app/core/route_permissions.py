@@ -54,7 +54,6 @@ ROUTE_PERMISSIONS: dict[str, str | None] = {
     "POST /api/integrations/strata-logging/enable": SETTINGS_ADMIN,
     "POST /api/integrations/strata-logging/reset": SETTINGS_ADMIN,
     "POST /api/integrations/strata-logging/test": SETTINGS_ADMIN,
-    "POST /api/platform-overview/lock/configure": SETTINGS_ADMIN,
     "POST /api/settings/reset": SETTINGS_ADMIN,
     "POST /api/settings/save": SETTINGS_ADMIN,
     "POST /api/settings/test": SETTINGS_ADMIN,
@@ -75,7 +74,6 @@ ROUTE_PERMISSIONS: dict[str, str | None] = {
     "POST /api/v1/virtual-chassis/apply": STACKING_WRITE,
     # No permission: reads, previews, this person's view, or this session.
     "POST /api/integrations/strata-logging/ui-event": None,
-    "POST /api/platform-overview/lock/verify": None,
     "POST /api/settings/open-data-folder": None,
     "POST /api/support/diagnostics": None,
     "POST /api/system/exit": None,

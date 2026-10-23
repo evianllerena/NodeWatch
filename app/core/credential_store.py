@@ -14,8 +14,9 @@ LEGACY_TARGETS = {
     "NodeWatch:MistApiToken": "MistNetworkTools:MistApiToken",
     "NodeWatch:SplunkHecToken": "MistNetworkTools:SplunkHecToken",
     "NodeWatch:AlertWebhookUrl": "MistNetworkTools:AlertWebhookUrl",
-    "NodeWatch:PlatformOverviewPin": "MistNetworkTools:PlatformOverviewPin",
 }
+# Platform Overview was removed in the pilot build; its owner-key verifier is no longer read.
+RETIRED_TARGETS = ("NodeWatch:PlatformOverviewPin", "MistNetworkTools:PlatformOverviewPin")
 
 
 class CredentialStoreError(RuntimeError):
@@ -232,6 +233,14 @@ def migrate_known_credentials(data_root: Path) -> dict[str, bool]:
             result[target] = bool(load_secret(data_root, target))
         except Exception:
             result[target] = False
+    # Remove the retired verifier from Windows Credential Manager. Not on macOS: touching another
+    # build's Keychain item can make macOS ask for permission at start-up, and the leftover is never read.
+    if os.name == "nt":
+        for target in RETIRED_TARGETS:
+            try:
+                _delete_secret_exact(data_root, target)
+            except Exception:  # noqa: BLE001 - best effort; an unused leftover is harmless
+                pass
     return result
 
 

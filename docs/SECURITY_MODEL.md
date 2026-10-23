@@ -58,11 +58,6 @@ The same controls apply to `NodeWatch.app`, with macOS equivalents:
   install folder that passes the permission check.
 - **Shared triage folder administrators** (and shares that map every user to one account) can still forge
   triage entries. Triage is a coordination aid, not an audit trail; production changes are audited locally.
-- **Platform Overview owner key.** The shipped verifier is the same for every copy so testers cannot unlock the
-  overview. It is a PBKDF2-SHA256 hash (600,000 iterations): safe only while the owner key is long and random —
-  rotate it to a 20+ character random key. The roadmap text it protects also ships in `app/core/registry.py`, so
-  the lock deters casual viewing only. Owner sessions expire after 30 minutes idle / 8 hours; failed attempts back
-  off per browser (in memory; a restart resets them).
 - **Unofficial Palo Alto API.** Traffic & Sessions uses the SCM Log Viewer API, which Palo Alto does not
   document as a public API. It is read-only, but its behaviour can change without notice.
 - **The launcher's signature.** The integrity chain starts at `NodeWatch.exe`: it holds the manifest hash. Only

@@ -717,20 +717,6 @@ body {
   font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
   font-weight: 800;
 }
-.roadmap-tags {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 18px;
-}
-.roadmap-tags span {
-  font-size: calc(var(--fs-sm) * var(--nw-tse, 1));
-  border: 1px solid var(--line);
-  background: var(--nw-gray-98, #f9fafb);
-  padding: 7px 9px;
-  border-radius: 999px;
-}
 @media (max-width: 980px) {
   .app-frame {
     grid-template-columns: 78px minmax(0, 1fr);
@@ -1138,132 +1124,14 @@ body {
   background: var(--nw-green-96, #ecfdf3);
   color: var(--nw-green-24, #067647);
 }
-.roadmap-principle {
-  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
-  color: var(--nw-gray-34, #475467);
-  background: var(--nw-gray-96, #f2f4f7);
-  padding: 7px 9px;
-  border-radius: 999px;
-}
-.roadmap-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 18px;
-}
-.roadmap-card {
-  border: 1px solid var(--line);
-  border-radius: calc(13px * var(--nw-radius, 1));
-  padding: 14px;
-  background: var(--nw-surface, #fff);
-  min-height: 170px;
-}
-.roadmap-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-.roadmap-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: calc(10px * var(--nw-radius, 1));
-  background: var(--nw-indigo-97, #eef4ff);
-  color: var(--nw-indigo-51, #3538cd);
-  display: grid;
-  place-items: center;
-  font-size: calc(17px * var(--nw-tse, 1));
-}
-.roadmap-status {
-  font-size: calc(var(--fs-2xs) * var(--nw-tse, 1));
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  font-weight: 900;
-  color: var(--nw-gray-34, #475467);
-  background: var(--nw-gray-96, #f2f4f7);
-  border-radius: 999px;
-  padding: 4px 7px;
-}
-.roadmap-card > strong {
-  display: block;
-  font-size: calc(var(--fs-md) * var(--nw-tse, 1));
-}
-.roadmap-category {
-  display: inline-block;
-  font-size: calc(var(--fs-2xs) * var(--nw-tse, 1));
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--nw-indigo-51, #3538cd);
-  margin-top: 6px;
-}
-.roadmap-card p {
-  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
-  color: var(--muted);
-  line-height: 1.5;
-  margin-bottom: 0;
-}
-.architecture-grid {
-  display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  gap: 14px;
-  margin-top: 14px;
-}
-.architecture-flow {
-  text-align: center;
-  margin-top: 16px;
-}
-.arch-node {
-  border: 1px solid var(--line);
-  background: var(--nw-gray-98, #f9fafb);
-  border-radius: calc(10px * var(--nw-radius, 1));
-  padding: 9px;
-  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
-  font-weight: 800;
-}
-.arch-node.primary-node {
-  background: var(--nw-indigo-97, #eef4ff);
-  border-color: var(--nw-indigo-89, #c7d7fe);
-  color: var(--nw-indigo-51, #3538cd);
-}
-.arch-arrow {
-  color: var(--nw-gray-65, #98a2b3);
-  padding: 5px;
-}
-.arch-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
-  gap: 6px;
-}
-.arch-row span {
-  border: 1px solid var(--line);
-  border-radius: calc(8px * var(--nw-radius, 1));
-  padding: 7px 5px;
-  background: var(--nw-surface, #fff);
-  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
-  color: var(--nw-gray-34, #475467);
-}
-.transaction-list {
-  margin: 15px 0 0;
-  padding-left: 22px;
-  color: var(--nw-gray-34, #475467);
-}
-.transaction-list li {
-  padding: 4px 0;
-  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
-}
 @media (max-width: 1100px) {
   .noc-summary-grid {
     grid-template-columns: repeat(3, 1fr);
   }
-  .roadmap-grid {
-    grid-template-columns: repeat(2, 1fr);
   }
-}
 @media (max-width: 900px) {
   .noc-main-grid,
-  .noc-lower-grid,
-  .architecture-grid {
+  .noc-lower-grid {
     grid-template-columns: 1fr;
   }
   .noc-filterbar {
@@ -1277,8 +1145,7 @@ body {
   }
 }
 @media (max-width: 650px) {
-  .noc-summary-grid,
-  .roadmap-grid {
+  .noc-summary-grid {
     grid-template-columns: 1fr;
   }
   .noc-filterbar {
@@ -2878,49 +2745,6 @@ body {
 .tool-nav {
   padding-bottom: 4px;
 }
-.owner-pin-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 14px 0;
-}
-.owner-pin-grid label,
-.platform-pin-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  color: var(--nw-gray-46, #667085);
-  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
-  font-weight: 700;
-}
-.owner-pin-grid input,
-.platform-pin-field input {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--nw-gray-84, #d0d5dd);
-  border-radius: calc(8px * var(--nw-radius, 1));
-  padding: 10px 11px;
-  background: var(--nw-surface, #fff);
-  color: var(--nw-gray-11, #101828);
-}
-.platform-lock-dialog form {
-  max-width: 460px;
-}
-.platform-pin-field {
-  margin: 14px 0;
-}
-.nav-item[data-tool='future-tools'] .nav-icon::after {
-  content: '';
-}
-.nav-item[data-tool='future-tools'] strong::after {
-  content: '  🔒';
-  font-size: calc(var(--fs-xs) * var(--nw-tse, 1));
-}
-@media (max-width: 900px) {
-  .owner-pin-grid {
-    grid-template-columns: 1fr;
-  }
-}
 
 /* v0.8.4 NodeWatch brand */
 .brand-logo {
@@ -2958,9 +2782,6 @@ body {
   outline: 2px solid var(--nw-side-blue-68, #60a5fa);
   outline-offset: 2px;
   border-radius: calc(12px * var(--nw-radius, 1));
-}
-.owner-access-card .muted {
-  max-width: 900px;
 }
 
 /* v0.8.6 simplified Command Center triage */

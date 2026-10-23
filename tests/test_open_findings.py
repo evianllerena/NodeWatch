@@ -157,10 +157,21 @@ class LowFindings(unittest.TestCase):
         block = src.split("if len(_jobs) >= MAX_JOBS", 1)[1].split("_jobs[job_id] = job", 1)[0]
         self.assertIn("state", block, "eviction must skip jobs that are still running")
 
-    @open_finding
     def test_default_owner_key_verifier_removed(self):
-        """Baseline finding #9."""
+        """Baseline finding #9: closed by removing Platform Overview and its owner key (you, 2026-10-22)."""
         self.assertNotIn("OWNER_KEY_DEFAULT_DIGEST", _src("modules/system/router.py"))
+
+    def test_platform_overview_is_gone(self):
+        from tests.support.asgi import api_routes
+        import app.main as main
+        from app.core.registry import get_tools
+
+        self.assertEqual([p for _, p, _ in api_routes(main.app) if "platform-overview" in p], [])
+        self.assertNotIn("future-tools", [t["id"] for t in get_tools()])
+        for rel in ("templates/index.html", "static/core.js", "static/modules/dashboard.js", "static/modules/settings.js"):
+            with self.subTest(file=rel):
+                self.assertNotRegex(_src(rel), r"platform-overview|future-tools|platformLock|owner_key")
+        self.assertNotIn("owner_session", _src("core/security.py"))
 
     def test_keychain_items_use_explicit_accessibility(self):
         self.assertIn("kSecAttrAccessible", _src("core/macos_keychain.py"))

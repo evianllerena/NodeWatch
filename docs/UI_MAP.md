@@ -198,11 +198,7 @@ Choose and save one: Settings & Support › Appearance.
 - `Settings & Support › Team triage`
 - `Settings & Support › Team triage › Sync status`
 - `Settings & Support › Upgrade-safe storage`
-- `Settings & Support › Platform Overview Lock`
 - `Settings & Support › Simple support workflow`
-
-**Platform Overview**
-- `Platform Overview › Content`
 
 ## 5. How a change is made (for whoever implements it)
 

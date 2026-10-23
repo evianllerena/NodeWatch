@@ -1,53 +1,21 @@
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
 import json
 import logging
 import os
 import subprocess
 import sys
-import time
-from threading import Lock
 
-from fastapi import APIRouter, Body, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from app.core.config import DATA_ROOT, STATE_ROOT, get_settings, reset_settings, save_settings
 from app.core import credential_store
-from app.core.credential_store import load_secret, save_secret
-from app.core.registry import get_roadmap, get_tools
-from app.core.security import (
-    OWNER_SESSION_COOKIE,
-    create_owner_session,
-    identity_proof,
-    launch_proof,
-    valid_owner_session,
-)
+from app.core.credential_store import load_secret
+from app.core.registry import get_tools
+from app.core.security import identity_proof, launch_proof
 from app.core.version import APP_BUILD, APP_VERSION
 from app.services.mist_client import MistApiError, MistClient, get_mist_client, reset_mist_client
 
-PLATFORM_PIN_TARGET = "NodeWatch:PlatformOverviewPin"  # stores only a one-way verifier
-# The distributed build ships the owner's verifier so testers cannot unlock the
-# Platform Overview. It is a PBKDF2 hash (600k iterations): safe only while the
-# owner key is long and random. Rotate it (Settings) to a 20+ character random key.
-OWNER_KEY_DEFAULT_SALT = "dcMEIP5VDMKzmTHMS8oQyw=="
-OWNER_KEY_DEFAULT_DIGEST = "YS_c8OWvaJ4jjbvz-h1LYaBu3-k0CbRgoq_L1gOa6Bg="
-OWNER_KEY_ITERATIONS = 600_000
-OWNER_LOCKOUT_BASE_SECONDS = 30.0
-OWNER_LOCKOUT_MAX_SECONDS = 15 * 60.0
-OWNER_FREE_ATTEMPTS = 5
-_owner_attempt_lock = Lock()
-# client key -> (consecutive failures, locked_until monotonic)
-_owner_attempts: dict[str, tuple[int, float]] = {}
-# Global guard: the per-browser key is a hash of the User-Agent, which a script can
-# change at will, so failures are also counted across all clients.
-OWNER_GLOBAL_WINDOW_SECONDS = 10 * 60.0
-OWNER_GLOBAL_MAX_FAILURES = 30
-OWNER_GLOBAL_LOCK_SECONDS = 10 * 60.0
-OWNER_MAX_TRACKED_CLIENTS = 256
-_owner_global_failures: list[float] = []
-_owner_global_locked_until = 0.0
 DIAGNOSTIC_EXPORTS_KEPT = 5
 log = logging.getLogger("nodewatch.system")
 router = APIRouter(prefix="/api", tags=["system"])
@@ -56,37 +24,6 @@ router = APIRouter(prefix="/api", tags=["system"])
 @router.get("/modules")
 def modules():
     return get_tools()
-
-
-def _require_owner_session(request: Request) -> None:
-    if not valid_owner_session(request.cookies.get(OWNER_SESSION_COOKIE)):
-        raise HTTPException(status_code=403, detail="Owner access is required")
-
-
-@router.get("/platform-overview/content")
-def platform_overview_content(request: Request):
-    _require_owner_session(request)
-    return {
-        "roadmap": get_roadmap(),
-        "principle": "Shared operational data · explicit approval for writes",
-        "shared_core": {
-            "source": "Provider APIs / Webhooks",
-            "data_layer": "Shared Client + Cache",
-            "services": ["Alarm/Event Correlation", "Inventory Index", "Audit Store"],
-            "consumers": ["Command Center", "Device Finder", "Chassis Manager", "Port Toolkit", "Security Operations"],
-        },
-        "write_safety": [
-            "Read current state",
-            "Snapshot before state",
-            "Validate proposed change",
-            "Preview change",
-            "Explicit Apply approval",
-            "Push to provider",
-            "Re-query configuration",
-            "Post-change validation",
-            "Record after state / rollback path",
-        ],
-    }
 
 
 @router.get("/settings")
@@ -339,136 +276,6 @@ def status(request: Request, test: bool = Query(False), probe: bool = Query(Fals
     except MistApiError as exc:
         result["connection_error"] = str(exc)
     return result
-
-
-@router.get("/platform-overview/lock")
-def platform_overview_lock_status(request: Request):
-    # Owner state is enforced server-side. The browser never decides on its own
-    # whether protected Platform Overview content may be returned.
-    unlocked = valid_owner_session(request.cookies.get(OWNER_SESSION_COOKIE))
-    return {"configured": True, "locked": not unlocked, "owner_key_required": True}
-
-
-def _owner_verifier_payload() -> dict:
-    raw = load_secret(DATA_ROOT, PLATFORM_PIN_TARGET)
-    if raw:
-        try:
-            payload = json.loads(raw)
-            if isinstance(payload, dict) and payload.get("salt") and payload.get("digest"):
-                return payload
-        except Exception:
-            # Ignore legacy plaintext PINs from the short-lived v0.8.4 implementation.
-            # They are deliberately not accepted as owner credentials in this build.
-            pass
-    return {"salt": OWNER_KEY_DEFAULT_SALT, "digest": OWNER_KEY_DEFAULT_DIGEST, "iterations": OWNER_KEY_ITERATIONS}
-
-
-def _verify_owner_key(owner_key: str) -> bool:
-    if not owner_key:
-        return False
-    payload = _owner_verifier_payload()
-    try:
-        salt = base64.urlsafe_b64decode(str(payload["salt"]).encode("ascii"))
-        expected = base64.urlsafe_b64decode(str(payload["digest"]).encode("ascii"))
-        iterations = max(100_000, int(payload.get("iterations") or OWNER_KEY_ITERATIONS))
-    except Exception:
-        return False
-    actual = hashlib.pbkdf2_hmac("sha256", owner_key.encode("utf-8"), salt, iterations, dklen=len(expected))
-    return hmac.compare_digest(actual, expected)
-
-
-def _owner_client_key(request: Request) -> str:
-    """Per-browser key for lockout, so one local process cannot lock everyone out."""
-    agent = request.headers.get("user-agent") or ""
-    host = request.client.host if request.client else ""
-    return hashlib.sha256(f"{host}|{agent}".encode("utf-8")).hexdigest()
-
-
-def _record_owner_attempt(request: Request, success: bool) -> None:
-    global _owner_global_locked_until
-    key = _owner_client_key(request)
-    now = time.monotonic()
-    with _owner_attempt_lock:
-        if success:
-            _owner_attempts.pop(key, None)
-            return
-        failures, _ = _owner_attempts.get(key, (0, 0.0))
-        failures += 1
-        locked_until = 0.0
-        if failures >= OWNER_FREE_ATTEMPTS:
-            # Exponential backoff: 30 s, 60 s, 120 s ... capped at 15 minutes.
-            delay = min(OWNER_LOCKOUT_MAX_SECONDS, OWNER_LOCKOUT_BASE_SECONDS * 2 ** (failures - OWNER_FREE_ATTEMPTS))
-            locked_until = now + delay
-        _owner_attempts[key] = (failures, locked_until)
-        while len(_owner_attempts) > OWNER_MAX_TRACKED_CLIENTS:
-            _owner_attempts.pop(next(iter(_owner_attempts)))
-        _owner_global_failures.append(now)
-        while _owner_global_failures and now - _owner_global_failures[0] > OWNER_GLOBAL_WINDOW_SECONDS:
-            _owner_global_failures.pop(0)
-        if len(_owner_global_failures) >= OWNER_GLOBAL_MAX_FAILURES:
-            _owner_global_locked_until = now + OWNER_GLOBAL_LOCK_SECONDS
-            _owner_global_failures.clear()
-
-
-def _check_owner_lockout(request: Request) -> None:
-    with _owner_attempt_lock:
-        _, locked_until = _owner_attempts.get(_owner_client_key(request), (0, 0.0))
-        locked_until = max(locked_until, _owner_global_locked_until)
-    remaining = locked_until - time.monotonic()
-    if remaining > 0:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Owner access temporarily locked after repeated failures. Try again in {int(remaining) + 1} seconds",
-        )
-
-
-@router.post("/platform-overview/lock/verify")
-def verify_platform_overview_pin(request: Request, response: Response, payload: dict = Body(...)):
-    _check_owner_lockout(request)
-    owner_key = str(payload.get("owner_key") or payload.get("pin") or "").strip()
-    ok = _verify_owner_key(owner_key)
-    _record_owner_attempt(request, ok)
-    if not ok:
-        raise HTTPException(status_code=403, detail="Incorrect owner access key")
-    session_token = create_owner_session()
-    response.set_cookie(
-        key=OWNER_SESSION_COOKIE,
-        value=session_token,
-        httponly=True,
-        secure=False,  # NodeWatch intentionally serves loopback HTTP only.
-        samesite="strict",
-        path="/",
-        max_age=8 * 60 * 60,  # matches the server-side absolute session limit
-    )
-    return {"ok": True, "unlocked": True}
-
-
-@router.post("/platform-overview/lock/configure")
-def configure_platform_overview_pin(request: Request, payload: dict = Body(...)):
-    # Rotation is only possible with the existing owner key. There is intentionally
-    # no first-run enrollment/reset path for testers receiving a distributed build.
-    _check_owner_lockout(request)
-    current_key = str(payload.get("current_key") or payload.get("current_pin") or "").strip()
-    if not _verify_owner_key(current_key):
-        _record_owner_attempt(request, False)
-        raise HTTPException(status_code=403, detail="Current owner access key is required")
-    _record_owner_attempt(request, True)
-    new_key = str(payload.get("owner_key") or payload.get("pin") or "").strip()
-    if len(new_key) < 16 or len(new_key) > 128:
-        raise HTTPException(status_code=400, detail="New owner access key must be 16 to 128 characters")
-    import secrets
-
-    salt = secrets.token_bytes(16)
-    digest = hashlib.pbkdf2_hmac("sha256", new_key.encode("utf-8"), salt, OWNER_KEY_ITERATIONS, dklen=32)
-    verifier = json.dumps(
-        {
-            "salt": base64.urlsafe_b64encode(salt).decode("ascii"),
-            "digest": base64.urlsafe_b64encode(digest).decode("ascii"),
-            "iterations": OWNER_KEY_ITERATIONS,
-        }
-    )
-    save_secret(DATA_ROOT, PLATFORM_PIN_TARGET, verifier, username="NodeWatch Platform Owner Verifier")
-    return {"ok": True, "configured": True}
 
 
 @router.post("/support/diagnostics")
