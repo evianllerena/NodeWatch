@@ -1,0 +1,27 @@
+name: launcher-parity
+
+# Records what the shipped v0.10.42 Windows launcher does on a clean Windows machine, as the baseline a
+# rebuilt launcher must match. Read-only with respect to the repo; runs on demand or when the harness changes.
+on:
+  push:
+    branches: [main]
+    paths: [tools/launcher_parity.ps1, .github/workflows/launcher-parity.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shipped-v0-10-42:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Extract the shipped installer payload
+        run: python tools/extract_windows_payload.py shipped/v0.10.42/NodeWatch-windows-installer.exe "${{ runner.temp }}\nw"
+      - name: Start the shipped launcher and record what it does
+        shell: pwsh
+        run: ./tools/launcher_parity.ps1 -Root "${{ runner.temp }}\nw" -Seconds 120
