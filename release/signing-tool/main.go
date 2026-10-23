@@ -622,6 +622,7 @@ func signEntries(entries []entry, idx []int, work string, skipSigned bool) error
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			return err
 		}
+		entries[i].data = clearBrokenCertificateEntry(entries[i].data)
 		if err := os.WriteFile(p, entries[i].data, 0o644); err != nil {
 			return err
 		}
@@ -718,4 +719,34 @@ func cleanEnv() []string {
 		}
 	}
 	return env
+}
+
+// clearBrokenCertificateEntry: a file whose signature was cut off but whose header still points at it (the bundled
+// zlib1.dll) cannot be signed ("not a valid Win32 application"). The loader ignores that entry, so it is cleared.
+func clearBrokenCertificateEntry(pe []byte) []byte {
+	if len(pe) < 0x40 || string(pe[:2]) != "MZ" {
+		return pe
+	}
+	off := int(binary.LittleEndian.Uint32(pe[0x3c:]))
+	if off+24+2 > len(pe) || string(pe[off:off+4]) != "PE\x00\x00" {
+		return pe
+	}
+	magic := binary.LittleEndian.Uint16(pe[off+24:])
+	dirs := off + 24 + 96
+	if magic == 0x20b {
+		dirs = off + 24 + 112
+	}
+	entry := dirs + 4*8 // IMAGE_DIRECTORY_ENTRY_SECURITY
+	if entry+8 > len(pe) {
+		return pe
+	}
+	at := int(binary.LittleEndian.Uint32(pe[entry:]))
+	size := int(binary.LittleEndian.Uint32(pe[entry+4:]))
+	if size == 0 || at+size <= len(pe) {
+		return pe
+	}
+	out := append([]byte{}, pe...)
+	binary.LittleEndian.PutUint32(out[entry:], 0)
+	binary.LittleEndian.PutUint32(out[entry+4:], 0)
+	return out
 }
