@@ -73,15 +73,16 @@ window.MistTools.alerting = (() => {
   // v0.10.24: alerts come from several sources. A source whose read failed this poll keeps its
   // previous alerts "active" (they did not resolve, they were just not read), and every source gets its
   // own baseline the first time it is seen, so neither a failed poll nor a newly added connector
-  // re-fires notifications for alerts that were already open. Incomplete Mist data keeps everything.
+  // re-fires notifications for alerts that were already open. Incomplete core inventory data keeps everything.
   function maybeNotify(alerts = [], meta = feed || {}) {
     if ((meta.errors || []).length) return;
-    const sourceOf = (a) => a?.source || 'mist';
+    const core = meta.core_source || feed?.core_source || '';
+    const sourceOf = (a) => a?.source || core;
     const current = new Map((alerts || []).filter((a) => a?.id).map((a) => [a.id, a]));
     const failed = new Set(meta.failed_sources || []);
     const next = new Map([...current].map(([id, a]) => [id, sourceOf(a)]));
     for (const [id, src] of browserActive) {
-      if (!next.has(id) && (failed.has(src) || (failed.has('*') && src !== 'mist'))) next.set(id, src);
+      if (!next.has(id) && (failed.has(src) || (failed.has('*') && src !== core))) next.set(id, src);
     }
     const enabled =
       localStorage.getItem('mntBrowserAlerts') === '1' &&
@@ -234,9 +235,9 @@ window.MistTools.alerting = (() => {
     if (result === 'granted') {
       localStorage.setItem('mntBrowserAlerts', '1');
       browserActive = new Map(
-        (feed?.notification_alerts || feed?.alerts || []).filter((a) => a?.id).map((a) => [a.id, a.source || 'mist']),
+        (feed?.notification_alerts || feed?.alerts || []).filter((a) => a?.id).map((a) => [a.id, a.source || feed?.core_source || '']),
       );
-      (feed?.notification_alerts || feed?.alerts || []).forEach((a) => primedSources.add(a.source || 'mist'));
+      (feed?.notification_alerts || feed?.alerts || []).forEach((a) => primedSources.add(a.source || feed?.core_source || ''));
       (feed?.polled_sources || []).forEach((src) => primedSources.add(src));
       primed = true;
     }

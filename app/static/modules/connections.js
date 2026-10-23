@@ -469,7 +469,7 @@
     const fields = (c.settings || []).map((f) => fieldHtml(c, f)).join('');
     const tlsOff = wiz.values.verify_tls === false;
     const body = `<form class="conn-form connwiz-form" data-wiz-form novalidate>
-        <p class="muted connwiz-lead">Paste the details from the previous step. Secrets go to Windows Credential Manager and are never shown again.${wiz.mode === 'edit' ? ' Leave a saved secret blank to keep it.' : ''}</p>
+        <p class="muted connwiz-lead">Paste the details from the previous step. Secrets go to your system's secure credential store and are never shown again.${wiz.mode === 'edit' ? ' Leave a saved secret blank to keep it.' : ''}</p>
         <div class="conn-fields">${fields}</div>
         <div class="notice warning conn-tls${tlsOff ? '' : ' hidden'}" data-tls-warning>Certificate checks are off for this connection. Prefer a private CA certificate file.</div>
       </form>`;

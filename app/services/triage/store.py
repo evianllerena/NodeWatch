@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import threading
 import time
 from collections import defaultdict
@@ -40,12 +41,22 @@ MUTE_FIELDS = ("type", "label", "source", "site_key", "site_name", "reason", "un
 CONTEXT_FIELDS = ("title", "type", "source", "site_name", "device_name")
 
 
+# Acknowledgements written before "via" existed recorded the source in the free-text "by", ending in
+# "in <Product>", for example in Mist. Any product is recognised, not one vendor (v0.10.45).
+_LEGACY_VIA = re.compile(r"\bin ([A-Z][\w.&/-]*(?: [A-Z][\w.&/-]*){0,3})")
+
+
+def legacy_via(by: str) -> str:
+    match = _LEGACY_VIA.search(str(by or "").strip())
+    return f"in {match.group(1)}"[:60] if match else ""
+
+
 def _via(rec: dict) -> str:
     if rec.get("via"):
         return str(rec["via"])[:60]
     by = str(rec.get("by") or "")
-    if "in Mist" in by:
-        return "in Mist"
+    if via := legacy_via(by):
+        return via
     return "NodeWatch" if by.startswith("NodeWatch") else ""
 
 

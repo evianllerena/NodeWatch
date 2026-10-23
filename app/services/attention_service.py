@@ -1059,10 +1059,11 @@ def acknowledge_in_source(keys: list[str] | None, incident_id: str | None, paylo
     def one(item):
         a, _ = item
         conn = sdk.get_connector(a.source)
-        if conn is None or not hasattr(conn, "acknowledge_alert"):
+        ack = sdk.hook(conn, "acknowledge_alert") if conn is not None else None
+        if ack is None:
             return a, {"ok": False, "acked": [], "failed": [{"error": "source cannot acknowledge"}]}
         try:
-            return a, conn.acknowledge_alert(a, note)
+            return a, ack(a, note)
         except Exception as exc:  # noqa: BLE001
             return a, {"ok": False, "acked": [], "failed": [{"error": str(exc)[:300]}]}
 

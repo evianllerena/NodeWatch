@@ -56,7 +56,7 @@ from app.integrations.diagnostics import record_integration_event
 from app.integrations.models import CURRENT_SCHEMA_VERSION, CanonicalRecord, ProvenanceValue
 from app.integrations.query import NodeWatchQuery, QueryResult
 from app.integrations.resilience import RetryPolicy
-from app.integrations.providers.sls_http import KeepAliveOpener
+from app.core.http_pool import KeepAliveOpener
 from app.integrations.providers.strata_logging_auth import StrataLoggingAuthAdapter, json_body
 from app.core.file_utils import write_private_text
 
@@ -231,7 +231,7 @@ class StrataLoggingProvider(ProviderAdapter):
     ) -> None:
         self.config = config or get_strata_logging_config()
         self.credentials = credentials or get_strata_logging_credentials()
-        # Keep-alive + gzip HTTPS client (sls_http); tests inject their own opener.
+        # Keep-alive + gzip HTTPS client (app.core.http_pool); tests inject their own opener.
         self._opener = opener or KeepAliveOpener()
         self._auth = StrataLoggingAuthAdapter(self.config, self.credentials, opener=self._opener)
         self._health = ProviderHealth(configured=self.configured)

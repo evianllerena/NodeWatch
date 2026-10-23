@@ -284,24 +284,39 @@ class Neutrality(unittest.TestCase):
             with self.subTest(function=fn.__name__):
                 self.assertIn("connection_id", inspect.signature(fn).parameters)
 
-    @open_finding
     def test_N3_sdk_imports_nothing_vendor_named(self):
+        """Fixed in v0.10.45: the shared HTTPS client moved to app.core.http_pool."""
         self.assertNotIn("app.integrations.providers", _src("integrations/connectors/sdk.py"))
 
-    @open_finding
     def test_N5_pages_never_default_a_source_to_mist(self):
+        """Fixed in v0.10.45: the alert feed says which source unlabelled rows belong to (core_source)."""
         self.assertNotRegex(_src("static/modules/alerting.js"), r"\|\|\s*'mist'")
 
-    @open_finding
     def test_N6_triage_does_not_parse_vendor_text(self):
+        """Fixed in v0.10.45: older "by" texts are read for any "in <Product>", not one vendor name."""
         for rel in ("services/triage/store.py", "services/triage/backends/local.py"):
             with self.subTest(file=rel):
-                self.assertNotIn('"in Mist" in by', _src(rel))
+                self.assertNotRegex(_src(rel), r"[\"']in Mist[\"']")
+        from app.services.triage.store import legacy_via
+        self.assertEqual(legacy_via("Acknowledged by ana in Mist"), "in Mist")
+        self.assertEqual(legacy_via("Acknowledged by ana in Aruba Central"), "in Aruba Central")
+        self.assertEqual(legacy_via("NodeWatch (ana)"), "")
 
-    @open_finding
+    def test_N7_optional_hooks_are_declared(self):
+        """Fixed in v0.10.45: features ask sdk.hook() for optional connector hooks; start-up warms every connector."""
+        for rel in ("services/topology_service.py", "services/attention_service.py"):
+            with self.subTest(file=rel):
+                self.assertNotRegex(_src(rel), r"(?:getattr|hasattr)\(\w+,\s*[\"'](?:list_device_facts|list_topology_devices|acknowledge_alert)")
+        main = _src("main.py")
+        self.assertIn("warm_up_all", main)
+        self.assertNotIn("mist_client import warm_up", main)
+        from app.integrations.connectors import sdk
+        with self.assertRaises(KeyError):
+            sdk.hook(object(), "not_a_declared_hook")
+
     def test_N9_no_os_specific_credential_text_in_connectors(self):
-        # Matches the phrase even when split across lines or adjacent string literals (sdk.py, silverpeak).
-        pattern = re.compile(r"Windows[\s\"']*Credential|Credential[\s\"']*Manager")
+        """Fixed in v0.10.45: help texts name both stores (Windows Credential Manager or the macOS Keychain)."""
+        pattern = re.compile(r"Windows[\s\"']*Credential[\s\"']*Manager(?! or the macOS Keychain)|(?<!Windows )Credential Manager")
         hits = [p.relative_to(APP).as_posix() for p in (APP / "integrations" / "connectors").rglob("*.py")
                 if pattern.search(p.read_text("utf-8"))]
         self.assertEqual(hits, [])

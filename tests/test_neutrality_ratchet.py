@@ -43,7 +43,7 @@ def measure() -> dict[str, int]:
         "vendor_extra_reads_indirect": sum(len(re.findall(r"getattr\(\w+,\s*[\"']vendor[\"']", t))
                                            + len(re.findall(r"\.get\([\"']vendor[\"']\)\s*or\s*\{\}", t))
                                            for t in text.values()),
-        "mist_source_branches": sum(len(re.findall(r"[=!]=\s*[\"']mist[\"']", t)) for t in text.values()),
+        "mist_source_branches": sum(len(re.findall(r"[=!]=\s*(?:[\"']mist[\"']|CORE_SOURCE\b)", t)) for t in text.values()),  # the named constant still counts
         "duck_typed_connector_calls": sum(len(re.findall(r"getattr\(\w+,\s*[\"'](?:list_|search_|get_|warm)", t))
                                           + len(re.findall(r"hasattr\(\w+,\s*[\"'](?:list_|acknowledge_|search_)", t))
                                           for t in text.values()),

@@ -1,3 +1,3 @@
-APP_VERSION = "0.10.44"
+APP_VERSION = "0.10.45"
 # Replaced with the release build id by tools/build_release.py (here and in static/core.js).
-APP_BUILD = "0.10.44-source"
+APP_BUILD = "0.10.45-source"

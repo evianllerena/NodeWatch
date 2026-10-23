@@ -17,7 +17,7 @@ Security model:
 * SNMPv3 USM only (no v1/v2c community strings, which travel in clear text). authPriv is required;
   authNoPriv needs an explicit "insecure" toggle. MD5 and DES are not offered.
 * Read-only: the transport has GET and GETBULK only — there is no SET code path.
-* Passphrases live in Windows Credential Manager (SDK secret fields), are never logged, and are
+* Passphrases live in the secure credential store (Windows Credential Manager or the macOS Keychain) (SDK secret fields), are never logged, and are
   scrubbed from every error. Changing the targets in the test form requires typing them again.
 * Targets: explicit hosts, or private ranges no larger than /24 (≤ 256 hosts in total); multicast,
   broadcast, link-local and reserved addresses are refused (see ``targets.py``).
@@ -160,7 +160,7 @@ MANIFEST = ConnectorManifest(
             "Authentication passphrase",
             "secret",
             required=True,
-            help="At least 8 characters. Stored in Windows Credential Manager.",
+            help="At least 8 characters. Stored in the secure credential store (Windows Credential Manager or the macOS Keychain).",
         ),
         SettingField(
             "privacy_protocol",
@@ -175,7 +175,7 @@ MANIFEST = ConnectorManifest(
             "privacy_passphrase",
             "Privacy passphrase",
             "secret",
-            help="At least 8 characters. Required unless privacy is off. Stored in Windows Credential Manager.",
+            help="At least 8 characters. Required unless privacy is off. Stored in the secure credential store (Windows Credential Manager or the macOS Keychain).",
         ),
         SettingField(
             "allow_no_privacy",

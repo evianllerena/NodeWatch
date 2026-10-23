@@ -268,7 +268,7 @@ window.MistTools.siem = (() => {
     document.querySelector('#siemSplunkUrl').value = cfg.splunk_url || '';
     document.querySelector('#siemSplunkToken').value = '';
     document.querySelector('#siemSplunkToken').placeholder = cfg.token_present
-      ? 'Saved in Credential Manager — leave blank to keep'
+      ? 'Saved in the secure credential store — leave blank to keep'
       : 'Enter Splunk HEC token';
     document.querySelector('#siemSplunkIndex').value = cfg.splunk_index || '';
     document.querySelector('#siemSplunkSourceType').value =

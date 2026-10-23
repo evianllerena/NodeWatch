@@ -76,15 +76,14 @@ def _startup_work() -> None:
         steps.append(f"{name} {round((time.monotonic() - t) * 1000)} ms")
 
     from app.integrations.connectors.sdk import discover as discover_connectors
-    from app.services.mist_client import warm_up as warm_up_mist
     from app.modules.system import router as system_module
     from app.modules.system.presence import start_watchdog
 
     step("connectors", discover_connectors)
-    from app.integrations.connectors.sdk import verify_all_in_background
+    from app.integrations.connectors.sdk import verify_all_in_background, warm_up_all as warm_up_connectors
 
     step("connection checks", verify_all_in_background)
-    step("mist warm-up", warm_up_mist)
+    step("connector warm-up", warm_up_connectors)
     step("event relay", start_siem_forwarder)
     step("alerting", start_alerting_monitor)
     step("backups", start_backup_scheduler)

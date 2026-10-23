@@ -16,7 +16,7 @@ Package layout (built for a future change module):
 
 Authentication: an API key generated on Panorama for a dedicated admin whose role allows only the
 XML API "Operational Requests" permission (see docs/CONNECTORS.md › Palo Alto). The key is sent as the
-``X-PAN-KEY`` header, never in the URL, and stored in Windows Credential Manager.
+``X-PAN-KEY`` header, never in the URL, and stored in the secure credential store (Windows Credential Manager or the macOS Keychain).
 """
 
 from __future__ import annotations
@@ -173,7 +173,7 @@ MANIFEST = ConnectorManifest(
             "secret",
             required=True,
             help="Key of a Panorama admin whose role allows only XML API › Operational Requests "
-            "(see the Connectors guide). Sent as the X-PAN-KEY header; stored in Windows Credential Manager.",
+            "(see the Connectors guide). Sent as the X-PAN-KEY header; stored in the secure credential store (Windows Credential Manager or the macOS Keychain).",
         ),
         SettingField(
             "verify_tls",

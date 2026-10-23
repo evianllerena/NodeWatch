@@ -2,7 +2,7 @@
 
 GET    /api/v1/connectors               catalog: every discovered connector, its state and form fields
 GET    /api/v1/connectors/capabilities  which capabilities at least one connected source offers
-POST   /api/v1/connectors/{id}          save the connection form (secrets → Credential Manager)
+POST   /api/v1/connectors/{id}          save the connection form (secrets → secure credential store)
 POST   /api/v1/connectors/{id}/test     one cheap read-only call (with the unsaved form when given);
                                         with {"probe": true} the Add-connection checklist: reachable, TLS,
                                         authenticated, per-capability permission probes, what was found

@@ -1762,8 +1762,8 @@ def _device_facts_rows(c: Any, arg: str | None, in_scope: set[str]) -> list[dict
     Sources answer from statistics they already read for LLDP, so this costs no extra API call. A
     failure only leaves the Closets rows empty; it is logged, never shown as a data gap.
     """
-    fn = getattr(c, "list_device_facts", None)
-    if not callable(fn):
+    fn = sdk.hook(c, "list_device_facts")
+    if fn is None:
         return []
     try:
         rows = list(fn(arg) or [])
@@ -2888,7 +2888,7 @@ def _build(
         take(rows)
     covered = {d.source for d in devices}
     for c in sdk.sources(NEIGHBORS):  # a neighbor source no inventory covers may describe its own boxes
-        if c.provider_id not in covered and hasattr(c, "list_topology_devices"):
+        if c.provider_id not in covered and sdk.hook(c, "list_topology_devices"):
             args = scope.args_for(c.provider_id)
             for a in [None] if args is None else args:
                 take(

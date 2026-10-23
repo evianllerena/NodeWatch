@@ -155,7 +155,7 @@
             <div class="alerting-type-toggles"><label><input id="alertingAp" type="checkbox" checked> AP disconnects</label><label><input id="alertingSwitch" type="checkbox" checked> Switch disconnects</label><label><input id="alertingGateway" type="checkbox" checked> Gateway, WAN edge &amp; other infrastructure disconnects</label></div><div class="alerting-policy-toggles"><label class="check-row"><input id="alertingRequireActive" type="checkbox" checked> Notify only if Mist still reports the device down after the confirmation delay</label><label class="check-row"><input id="alertingIsolatedAp" type="checkbox"> Notify isolated AP disconnects (off by default to reduce transient Wi-Fi noise)</label></div>
             <hr>
             <div class="eyebrow">External notification</div><h4>HTTPS webhook</h4>
-            <p class="muted">Optional. Send deduplicated alerts to a generic HTTPS endpoint or Slack-compatible incoming webhook. The webhook URL is stored separately in Windows Credential Manager.</p>
+            <p class="muted">Optional. Send deduplicated alerts to a generic HTTPS endpoint or Slack-compatible incoming webhook. The webhook URL is stored separately in the secure credential store (Windows Credential Manager or the macOS Keychain).</p>
             <label class="check-row"><input id="alertingWebhookEnabled" type="checkbox"> Send alerts to webhook</label>
             <div class="field"><label>Webhook format</label><select id="alertingWebhookFormat"><option value="generic">Generic JSON</option><option value="slack">Slack-compatible</option></select></div>
             <div class="field"><label>Webhook URL</label><input id="alertingWebhookUrl" type="password" placeholder="Leave blank to keep saved URL"></div>
@@ -469,7 +469,7 @@
                   <label>Client Secret<input id="paDsSecret" type="password" autocomplete="new-password" placeholder="Enter Client Secret"></label>
                   <label class="check-row"><input id="paDsEnabled" type="checkbox"> Enable device intelligence in Device Finder</label>
                 </div>
-                <div class="notice info">Common Services OAuth credentials are kept in Windows Credential Manager. Short-lived access tokens stay in process memory only.</div>
+                <div class="notice info">Common Services OAuth credentials are kept in the secure credential store (Windows Credential Manager or the macOS Keychain). Short-lived access tokens stay in process memory only.</div>
                 <div id="paDsResult" class="notice info hidden"></div>
                 <div class="editor-actions"><button id="paDsTest" class="btn secondary" type="button">Test Connection</button><button id="paDsSave" class="btn primary" type="button">Save Integration</button><button id="paDsReset" class="btn ghost" type="button">Reset</button></div>
               </div>
@@ -500,7 +500,7 @@
           </section>
           <section class="card content-card" data-settings-tab="support" data-settings-order="2" data-ui="Settings &amp; Support › Upgrade-safe storage">
             <div class="eyebrow">Persistent data</div><h3>Upgrade-safe storage</h3>
-            <p class="muted">New application revisions use the same Windows user-data folder, so settings, audit records, dismissals, and diagnostics survive upgrades automatically.</p>
+            <p class="muted">New application revisions use the same user-data folder, so settings, audit records, dismissals, and diagnostics survive upgrades automatically.</p>
             <dl class="settings-info"><dt>Settings</dt><dd id="settingsDataPath">%LOCALAPPDATA%\NodeWatch</dd><dt>API Token</dt><dd id="settingsCredentialStore">Windows Credential Manager</dd><dt>Application folder</dt><dd>Replaceable on every upgrade</dd></dl>
             <div class="editor-actions"><button id="settingsOpenData" class="btn secondary">Open Data Folder</button><button id="settingsReset" class="btn ghost">Reset Connection</button></div>
           </section>

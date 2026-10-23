@@ -183,7 +183,7 @@ _OPENERS_LOCK = threading.Lock()
 
 def _shared_opener(verify_tls: bool, context: ssl.SSLContext):
     # Imported lazily: app.integrations imports this module through its Mist provider.
-    from app.integrations.providers.sls_http import KeepAliveOpener
+    from app.core.http_pool import KeepAliveOpener
 
     with _OPENERS_LOCK:
         opener = _OPENERS.get(bool(verify_tls))

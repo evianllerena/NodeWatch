@@ -74,7 +74,7 @@ SETUP = ConnectorSetup(
         SetupStep(
             "Copy the token",
             "FortiOS shows the new API token once when you click OK. Copy it and paste it in the next step; "
-            "NodeWatch stores it in Windows Credential Manager.",
+            "NodeWatch stores it in the secure credential store (Windows Credential Manager or the macOS Keychain).",
         ),
         SetupStep(
             "Check HTTPS access",
@@ -146,7 +146,7 @@ MANIFEST = ConnectorManifest(
             "REST API token",
             "secret",
             required=True,
-            help="Token of a REST API administrator with a read-only profile. Stored in Windows Credential Manager.",
+            help="Token of a REST API administrator with a read-only profile. Stored in the secure credential store (Windows Credential Manager or the macOS Keychain).",
         ),
         SettingField(
             "vdom", "VDOM (optional)", "text", placeholder="root", help="Leave blank for the token's default VDOM."

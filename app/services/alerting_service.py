@@ -234,6 +234,11 @@ _FEED_BUILD_LOCK = threading.Lock()  # single flight for non-fresh builds
 _FEED_MEMO: dict = {"at": 0.0, "value": None}
 
 
+# The source of feed rows that carry no "source" of their own (the core inventory path). Pages read it
+# from the feed ("core_source") instead of naming a vendor (v0.10.45).
+CORE_SOURCE = "mist"
+
+
 def _memo(max_age: float):
     with _FEED_MEMO_LOCK:
         value, at = _FEED_MEMO["value"], _FEED_MEMO["at"]
@@ -305,10 +310,10 @@ def _other_source_alerts() -> tuple[list, list]:
         if cached is not None:
             alerts, errors = cached
             return (
-                [a for a in alerts if getattr(a, "source", "") != "mist"],
-                [e for e in errors if not (isinstance(e, dict) and e.get("source") == "mist")],
+                [a for a in alerts if getattr(a, "source", "") != CORE_SOURCE],
+                [e for e in errors if not (isinstance(e, dict) and e.get("source") == CORE_SOURCE)],
             )
-        others = [c for c in sdk.sources(ALERTS) if c.manifest.connector_id != "mist"]
+        others = [c for c in sdk.sources(ALERTS) if c.manifest.connector_id != CORE_SOURCE]
         if not others:
             return [], []
         rows: list = []
@@ -364,7 +369,7 @@ def _polled_sources(alerts: list, failed: set[str]) -> list[str]:
         ids |= {c.manifest.connector_id for c in sdk.sources(ALERTS)}
     except Exception:  # noqa: BLE001
         pass
-    return sorted(i for i in ids if i and i != "mist" and i not in failed and "*" not in failed)
+    return sorted(i for i in ids if i and i != CORE_SOURCE and i not in failed and "*" not in failed)
 
 
 def _any_other_alert_source() -> bool:
@@ -372,7 +377,7 @@ def _any_other_alert_source() -> bool:
         from app.integrations.connectors import sdk
         from app.integrations.contracts import ALERTS
 
-        return any(c.manifest.connector_id != "mist" for c in sdk.sources(ALERTS))
+        return any(c.manifest.connector_id != CORE_SOURCE for c in sdk.sources(ALERTS))
     except Exception:  # noqa: BLE001
         return False
 
@@ -442,6 +447,7 @@ def _build_alert_feed(*, fresh: bool = False) -> dict:
             "source_errors": [_error_text(e) for e in other_errors],
             "failed_sources": sorted(failed),
             "polled_sources": _polled_sources(other_alerts, failed),
+            "core_source": CORE_SOURCE,
             "updated": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -672,7 +678,8 @@ def _build_alert_feed(*, fresh: bool = False) -> dict:
         # webhook notifications, and one unreachable vendor must not silence the rest.
         "source_errors": [_error_text(e) for e in other_errors],
         "failed_sources": sorted(_failed_sources(other_errors)),
-        "polled_sources": ["mist", *_polled_sources(other_alerts, _failed_sources(other_errors))],
+        "polled_sources": [CORE_SOURCE, *_polled_sources(other_alerts, _failed_sources(other_errors))],
+        "core_source": CORE_SOURCE,
         "policy": {"grace_seconds": grace, "require_active_confirmation": require_active},
         "updated": datetime.now(timezone.utc).isoformat(),
     }
@@ -761,17 +768,17 @@ def poll_and_notify(*, force_test: bool = False) -> dict:
                 kept = {
                     i
                     for i in previous_ids - current_ids
-                    if previous_sources.get(i, "mist") in failed
-                    or ("*" in failed and previous_sources.get(i, "mist") != "mist")
+                    if previous_sources.get(i, CORE_SOURCE) in failed
+                    or ("*" in failed and previous_sources.get(i, CORE_SOURCE) != CORE_SOURCE)
                 }
                 # Each source has its own baseline: the first poll that sees a source records its open
                 # alerts without sending them (after an upgrade, or when a connector is added).
                 primed_sources = set(state.get("primed_sources") or [])
                 if state.get("episode_tracking_primed"):
-                    primed_sources.add("mist")  # earlier releases tracked Mist only
+                    primed_sources.add(CORE_SOURCE)  # earlier releases tracked Mist only
 
                 def source_of(alert: dict) -> str:
-                    return str(alert.get("source") or "mist")
+                    return str(alert.get("source") or CORE_SOURCE)
                 sent_keys = dict(state.get("sent") or {})
                 cooldown = int(cfg.get("cooldown_seconds") or DEFAULT_COOLDOWN_SECONDS)
                 delivered_ids = set(previous_ids & current_ids)
@@ -805,7 +812,7 @@ def poll_and_notify(*, force_test: bool = False) -> dict:
 
                 state["active_ids"] = sorted(current_ids | kept)
                 state["active_sources"] = {
-                    **{i: previous_sources.get(i, "mist") for i in kept},
+                    **{i: previous_sources.get(i, CORE_SOURCE) for i in kept},
                     **{i: source_of(current[i]) for i in current_ids},
                 }
                 polled = set(feed.get("polled_sources") or []) | {source_of(a) for a in current.values()}

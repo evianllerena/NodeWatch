@@ -107,7 +107,7 @@ MANIFEST = ConnectorManifest(
             "API token",
             "secret",
             required=True,
-            help="Read-only token. Stored in Windows Credential Manager.",
+            help="Read-only token. Stored in the secure credential store (Windows Credential Manager or the macOS Keychain).",
         ),
         SettingField("verify_tls", "Verify TLS certificate", "boolean", default=True),
         SettingField("ca_file", "Private CA certificate (optional)", "text", placeholder=r"C:\certs\ca.pem"),

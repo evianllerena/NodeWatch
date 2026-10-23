@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, HTTPException
 
+from app.core import credential_store
 from app.integrations import registry
 from app.integrations.base import IntegrationError
 from app.integrations.diagnostics import record_integration_event
@@ -77,7 +78,7 @@ def _public_sls_state() -> dict:
         "client_id_present": bool(creds.get("client_id")),
         "client_secret_present": bool(creds.get("client_secret")),
         "tsg_id_present": bool(creds.get("tsg_id")),
-        "credential_store": "Windows Credential Manager",
+        "credential_store": credential_store.store_label(),
         "read_only": True,
         "health": provider.health_state().public_dict,
         "capabilities": list(provider.capabilities()),
@@ -233,7 +234,7 @@ def _public_pa_state() -> dict:
         "client_id_present": bool(creds.get("client_id")),
         "client_secret_present": bool(creds.get("client_secret")),
         "tsg_id_present": bool(creds.get("tsg_id")),
-        "credential_store": "Windows Credential Manager",
+        "credential_store": credential_store.store_label(),
         "read_only": True,
         "capabilities": list(
             registry.descriptor("palo_alto_device_security").capabilities

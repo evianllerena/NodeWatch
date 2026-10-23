@@ -23,6 +23,7 @@ import uuid
 from pathlib import Path
 
 from app.core.file_utils import write_private_text
+from app.services.triage.store import legacy_via
 from app.services.triage.backends._jsonl import JsonlFolderBackend
 from app.services.triage.base import BackendManifest
 from app.services.triage.events import DURATIONS, EventError, validate_event
@@ -41,8 +42,8 @@ MANIFEST = BackendManifest(
 
 def _via(by: str) -> str:
     by = str(by or "")
-    if "in Mist" in by:
-        return "in Mist"
+    if via := legacy_via(by):
+        return via
     if by.startswith("NodeWatch"):
         return "NodeWatch"
     return by[:60]

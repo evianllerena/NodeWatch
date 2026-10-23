@@ -3,8 +3,8 @@
 A connector is a package under ``app/integrations/connectors/<connector_id>/`` that exposes:
 
 * ``MANIFEST`` — a :class:`ConnectorManifest`: who it is, what it can do, and which settings fields the
-  user fills in (the Settings page draws the connection form from this; secrets go to Windows
-  Credential Manager automatically).
+  user fills in (the Settings page draws the connection form from this; secrets go to the secure
+  credential store automatically: Windows Credential Manager or the macOS Keychain).
 * ``CONNECTOR`` — a :class:`Connector` subclass implementing the capability methods it declares
   (see :mod:`app.integrations.contracts`).
 
@@ -828,12 +828,12 @@ _OPENERS: dict[tuple[bool, str], Any] = {}
 _OPENERS_LOCK = threading.Lock()
 
 
-from app.integrations.providers.sls_http import ResponseTooLarge  # noqa: E402
+from app.core.http_pool import ResponseTooLarge  # noqa: E402
 
 
 def _shared_opener(verify_tls: bool, ca_file: str) -> Any:
     """Pooled keep-alive opener for one TLS setting (see HttpJsonClient.__init__)."""
-    from app.integrations.providers.sls_http import KeepAliveOpener
+    from app.core.http_pool import KeepAliveOpener
 
     key = (verify_tls, ca_file)
     with _OPENERS_LOCK:
@@ -1111,7 +1111,7 @@ def clean_connector_settings(
 
 
 def save_connector_settings(connector_id: str, values: dict[str, Any]) -> dict[str, Any]:
-    """Validate and save a connector's form. Secret fields go to Credential Manager; blank keeps them."""
+    """Validate and save a connector's form. Secret fields go to the secure credential store; blank keeps them."""
     connector = get_connector(connector_id)
     if connector is None:
         raise ValueError(f"Unknown connector {connector_id}")
@@ -1599,6 +1599,36 @@ def tls_verification_off() -> list[str]:
         except Exception:  # noqa: BLE001 - a broken connector must not break /api/status
             continue
     return names
+
+
+# Optional connector hooks (v0.10.45). Features look a hook up with ``hook()`` instead of probing for
+# vendor methods with getattr/hasattr, so every optional entry point a connector may offer is listed here.
+OPTIONAL_HOOKS: dict[str, str] = {
+    "list_device_facts": "NEIGHBORS: (site) -> per-device port, PoE, client and floor facts from statistics already read",
+    "list_topology_devices": "NEIGHBORS: (site) -> devices a neighbor source can describe when no inventory covers them",
+    "acknowledge_alert": "ALERTS: (alert, note) -> {ok, acked, failed}; acknowledges the alert in the source",
+    "warm_up": "start-up: () -> None; must return at once (start a thread) and do nothing when not configured",
+}
+
+
+def hook(connector: Any, name: str) -> Callable[..., Any] | None:
+    """The connector's optional ``name`` hook (one of OPTIONAL_HOOKS), or None when it does not offer it."""
+    if name not in OPTIONAL_HOOKS:
+        raise KeyError(f"unknown connector hook {name!r}")
+    fn = getattr(connector, name, None)
+    return fn if callable(fn) else None
+
+
+def warm_up_all() -> None:
+    """Start-up: let every connector that offers ``warm_up`` prefetch what the first pages read. Never raises."""
+    for c in all_connectors():
+        fn = hook(c, "warm_up")
+        if fn is None:
+            continue
+        try:
+            fn()
+        except Exception:  # noqa: BLE001 - one connector never stops the others
+            log.warning("warm-up of %s failed", c.manifest.connector_id, exc_info=True)
 
 
 def sources(capability: str, *, include_disabled: bool = False) -> list[Connector]:

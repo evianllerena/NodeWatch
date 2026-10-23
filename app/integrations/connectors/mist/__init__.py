@@ -89,6 +89,12 @@ class MistConnector(MistAlerts, MistInventory, MistTopology, MistAudit, MistSecu
     def enabled(self) -> bool:
         return self.configured
 
+    def warm_up(self) -> None:
+        """Start-up prefetch (runs in its own thread; does nothing when Mist is not configured)."""
+        from app.services.mist_client import warm_up
+
+        warm_up()
+
     def test_connection(self) -> dict:
         if not self.configured:
             return {"ok": False, "provider": "mist", "configured": False}

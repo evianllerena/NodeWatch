@@ -172,8 +172,8 @@ SETUP = ConnectorSetup(
         ),
         SetupStep(
             "Copy the key",
-            "Copy the Key value and paste it in the next step. NodeWatch stores it in Windows Credential "
-            "Manager and never shows it again.",
+            "Copy the Key value and paste it in the next step. NodeWatch stores it in the secure credential store "
+            "(Windows Credential Manager or the macOS Keychain) and never shows it again.",
         ),
     ),
     permissions="One Orchestrator API key with Permission = Read-Only (net_read). NodeWatch only reads: "
@@ -249,7 +249,7 @@ MANIFEST = ConnectorManifest(
             "secret",
             required=True,
             help="A read-only (net_read) API key from Orchestrator › Orchestrator Server › "
-            "Users & Authentication › API Keys. Stored in Windows Credential Manager.",
+            "Users & Authentication › API Keys. Stored in the secure credential store (Windows Credential Manager or the macOS Keychain).",
         ),
         SettingField(
             "verify_tls",
