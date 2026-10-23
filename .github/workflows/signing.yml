@@ -80,10 +80,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download -R jedisct1/minisign --pattern "*win64*.zip" -D ms
-          Expand-Archive (Get-ChildItem ms\*.zip).FullName -DestinationPath ms
+          $assets = gh release view -R jedisct1/minisign --json tagName,assets -q '.tagName + " " + ([.assets[].name] | join(" "))' 2>&1
+          Write-Output "::notice title=minisign release::$assets"
+          gh release download -R jedisct1/minisign --pattern "*win64*" -D ms 2>&1 | Out-String | ForEach-Object { if ($_) { Write-Output "::notice title=download::$($_ -replace "`r?`n",'%0A')" } }
+          Get-ChildItem ms -File | Where-Object Extension -eq '.zip' | ForEach-Object { Expand-Archive $_.FullName -DestinationPath ms -Force }
           $m = Get-ChildItem ms -Recurse -Filter minisign.exe | Select-Object -First 1
-          & $m.FullName -Vm work\NodeWatch.exe -p work\minisign.pub
+          if (-not $m) { throw "minisign.exe not found in: $((Get-ChildItem ms -Recurse).Name -join ', ')" }
+          $out = & $m.FullName -Vm work\NodeWatch.exe -p work\minisign.pub 2>&1 | Out-String
+          Write-Output "::notice title=minisign (exit $LASTEXITCODE)::$($out -replace "`r?`n",'%0A')"
           if ($LASTEXITCODE -ne 0) { throw "minisign rejected the signature" }
       - name: Install the signed installer; every program file is signed; the launcher starts
         shell: pwsh
@@ -100,6 +104,7 @@ jobs:
           }
           Write-Output "::notice title=program files::$count checked, $($bad.Count) not validly signed"
           if ($bad) { Write-Output "::error title=unsigned::$($bad -join '%0A')"; throw "unsigned program files" }
+          Write-Output "::notice title=installed::$count program files, all validly signed"
           ./tools/launcher_parity.ps1 -Root (Join-Path $env:LOCALAPPDATA "Programs") -Seconds 120 -ExpectBuild "${{ needs.build.outputs.id }}"
 
   publish-tool:
