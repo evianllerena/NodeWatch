@@ -1,0 +1,125 @@
+name: signing
+
+# Phase 3: checks NodeWatch-Sign (release/signing-tool) end to end on a clean Windows machine. A throw-away
+# certificate and minisign key are made on the runner (your real keys stay on your PC), a fresh installer is
+# signed, then: every program file inside carries the signature, the installer installs and the launcher starts
+# (so the rebuilt integrity list and the launcher's pinned hash are right), and the official minisign tool accepts
+# the .minisig. Also publishes NodeWatch-Sign.exe as its own private prerelease for you to download.
+on:
+  push:
+    branches: [main]
+    paths: [release/signing-tool/**, release/windows-installer/**, tools/build_release.py, .github/workflows/signing.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.id.outputs.id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.7"
+          cache: false
+      - id: id
+        run: echo "id=$(python3 tools/build_release.py build-id)" >> "$GITHUB_OUTPUT"
+      - name: Build NodeWatch-Sign.exe and an installer (source app) to sign
+        run: |
+          v=$(python3 tools/build_release.py version)
+          mkdir -p dist
+          for d in windows-launcher windows-installer signing-tool; do
+            desc="NodeWatch"; kind=gui; name=NodeWatch.exe
+            [ "$d" = windows-installer ] && desc="NodeWatch Setup"
+            [ "$d" = signing-tool ] && desc="NodeWatch Sign" && kind=cli && name=NodeWatch-Sign.exe
+            (cd release/$d && go run github.com/tc-hib/go-winres@v0.3.3 simply --arch amd64 --icon ../resources/icon-256.png --manifest $kind \
+              --file-version "$v.0" --product-version "$v.0" --file-description "$desc" --product-name "NodeWatch" \
+              --copyright "BWN" --original-filename "$name" --out rsrc)
+          done
+          (cd release/signing-tool && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../../dist/NodeWatch-Sign.exe .)
+          python3 tools/build_release.py windows-installer --installer shipped/v0.10.42/NodeWatch-windows-installer.exe \
+            --out dist/NodeWatch.exe --build ${{ steps.id.outputs.id }} | tail -n 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signing
+          path: dist/
+
+  test:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: signing
+          path: dist
+      - name: Setup (throw-away keys on the runner) and sign
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path work | Out-Null
+          Copy-Item dist\NodeWatch.exe work\NodeWatch.exe
+          Push-Location work
+          ..\dist\NodeWatch-Sign.exe setup
+          if ($LASTEXITCODE -ne 0) { throw "setup failed" }
+          # On the customer's PCs their IT does this by Group Policy; here the test trusts the throw-away certificate.
+          Import-Certificate -FilePath BWN-NodeWatch-CodeSigning.cer -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+          Import-Certificate -FilePath BWN-NodeWatch-CodeSigning.cer -CertStoreLocation Cert:\LocalMachine\TrustedPublisher | Out-Null
+          ..\dist\NodeWatch-Sign.exe sign NodeWatch.exe 2>&1 | Tee-Object -FilePath ..\sign.txt
+          if ($LASTEXITCODE -ne 0) { throw "sign failed" }
+          ..\dist\NodeWatch-Sign.exe verify NodeWatch.exe minisign.pub
+          if ($LASTEXITCODE -ne 0) { throw "verify failed" }
+          Pop-Location
+          $s = Get-AuthenticodeSignature work\NodeWatch.exe
+          Write-Output "::notice title=installer signature::$($s.Status) $($s.SignerCertificate.Subject) timestamp=$([bool]$s.TimeStamperCertificate)"
+          if ($s.Status -ne 'Valid') { throw "installer signature: $($s.Status) $($s.StatusMessage)" }
+          Write-Output "::notice title=sign output::$((Get-Content sign.txt) -join '%0A')"
+      - name: The official minisign accepts the signature
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download -R jedisct1/minisign --pattern "*win64*.zip" -D ms
+          Expand-Archive (Get-ChildItem ms\*.zip).FullName -DestinationPath ms
+          $m = Get-ChildItem ms -Recurse -Filter minisign.exe | Select-Object -First 1
+          & $m.FullName -Vm work\NodeWatch.exe -p work\minisign.pub
+          if ($LASTEXITCODE -ne 0) { throw "minisign rejected the signature" }
+      - name: Install the signed installer; every program file is signed; the launcher starts
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath work\NodeWatch.exe -ArgumentList "/S" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "silent install exit $($p.ExitCode)" }
+          $dir = Join-Path $env:LOCALAPPDATA "Programs\NodeWatch"
+          $bad = @()
+          $count = 0
+          Get-ChildItem $dir -Recurse -File | Where-Object { $_.Extension -in '.exe', '.dll', '.pyd' } | ForEach-Object {
+            $count++
+            $s = Get-AuthenticodeSignature $_.FullName
+            if ($s.Status -ne 'Valid') { $bad += "$($_.FullName.Substring($dir.Length)) $($s.Status)" }
+          }
+          Write-Output "::notice title=program files::$count checked, $($bad.Count) not validly signed"
+          if ($bad) { Write-Output "::error title=unsigned::$($bad -join '%0A')"; throw "unsigned program files" }
+          ./tools/launcher_parity.ps1 -Root (Join-Path $env:LOCALAPPDATA "Programs") -Seconds 120 -ExpectBuild "${{ needs.build.outputs.id }}"
+
+  publish-tool:
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: signing
+          path: dist
+      - name: Publish NodeWatch-Sign.exe (private prerelease)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum NodeWatch-Sign.exe > NodeWatch-Sign.sha256
+          gh release create "signing-tool-${{ github.sha }}" NodeWatch-Sign.exe NodeWatch-Sign.sha256 --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" --prerelease --title "NodeWatch-Sign (signing tool, ${{ needs.build.outputs.id }})" \
+            --notes "Signs NodeWatch releases on your PC. Not for customers. Run: NodeWatch-Sign.exe setup (once), then NodeWatch-Sign.exe sign NodeWatch.exe NodeWatch.zip"

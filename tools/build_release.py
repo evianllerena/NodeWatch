@@ -305,6 +305,18 @@ def windows_files(installer: Path, build: str, compiled: dict[str, bytes] | None
     return new, compile_windows_launcher(sha256(new["integrity.json"]), build), report
 
 
+SIGNING_ROOM = 8 * 1024 * 1024
+
+
+def pad_zip(data: bytes, extra: int) -> bytes:
+    """Insert ``extra`` zero bytes between a zip's last file and its central directory (readers follow offsets)."""
+    end = data.rfind(EOCD)
+    cd_size, cd_off = struct.unpack_from("<II", data, end + 12)
+    eocd = bytearray(data[end:])
+    struct.pack_into("<I", eocd, 16, cd_off + extra)
+    return data[:cd_off] + b"\0" * extra + data[cd_off:cd_off + cd_size] + bytes(eocd)
+
+
 def build_windows_installer(installer: Path, out: Path, build: str, compiled: dict[str, bytes] | None) -> None:
     """NodeWatch.exe built from source (release/windows-installer, v0.10.49): the wizard, silent install and
     uninstaller recorded from the shipped v0.10.42 installer, with this release's folder embedded. Unlike the shipped
@@ -323,6 +335,9 @@ def build_windows_installer(installer: Path, out: Path, build: str, compiled: di
             z.writestr("NodeWatch/NodeWatch.exe", launcher)
             for rel in sorted(new):
                 z.writestr(f"NodeWatch/_internal/{rel}", new[rel])
+        # Room for signatures (Phase 3): NodeWatch-Sign signs the program files inside on your PC and puts the payload
+        # back in place, so the embedded zip carries spare bytes between its files and its central directory.
+        (src / "payload.zip").write_bytes(pad_zip((src / "payload.zip").read_bytes(), SIGNING_ROOM))
         exe = Path(tmp) / "NodeWatch.exe"
         env = dict(os.environ, GOOS="windows", GOARCH="amd64", CGO_ENABLED="0")
         subprocess.run(["go", "build", "-trimpath", "-ldflags=-s -w -H windowsgui", "-o", str(exe), "."], cwd=src, env=env, check=True)
