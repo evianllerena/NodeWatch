@@ -14,14 +14,19 @@ import unittest
 from dataclasses import fields
 
 import tests.support  # noqa: F401
-from tests.support import app_dir
+from tests.support import app_dir, needs_source
 
 APP = app_dir()
 open_finding = unittest.expectedFailure
 
 
 def _src(rel: str) -> str:
-    return (APP / rel).read_text(encoding="utf-8")
+    from tests.support import COMPILED
+
+    path = APP / rel
+    if COMPILED and not path.exists():
+        raise unittest.SkipTest(f"compiled build: {rel} is checked on the source tree")
+    return path.read_text(encoding="utf-8")
 
 
 class _FakeClient:
@@ -267,6 +272,7 @@ class Cleanup(unittest.TestCase):
         self.assertEqual(own, [])
 
 
+@needs_source
 class SilentExcepts(unittest.TestCase):
     def test_every_silent_broad_except_says_why(self):
         """Fixed in v0.10.44: an `except Exception: pass` carries a reason on the except, the pass or the next line."""
@@ -410,6 +416,7 @@ class Neutrality(unittest.TestCase):
         with self.assertRaises(KeyError):
             sdk.hook(object(), "not_a_declared_hook")
 
+    @needs_source
     def test_N9_no_os_specific_credential_text_in_connectors(self):
         """Fixed in v0.10.45: help texts name both stores (Windows Credential Manager or the macOS Keychain)."""
         pattern = re.compile(r"Windows[\s\"']*Credential[\s\"']*Manager(?! or the macOS Keychain)|(?<!Windows )Credential Manager")

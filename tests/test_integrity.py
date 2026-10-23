@@ -55,8 +55,20 @@ class BundleIntegrity(unittest.TestCase):
     def test_no_dev_or_doc_files_shipped(self):
         """Release hygiene gate (v0.10.44: releases no longer ship docs/ or README.md). Run with python -B."""
         found = [p.relative_to(ROOT).as_posix() for p in ROOT.rglob("*")
-                 if p.name in {"__pycache__", "docs", ".git", "tests", "README.md"} or p.suffix in {".map", ".pdb"}]
+                 if p.name in {"__pycache__", "docs", ".git", "tests", "README.md"} or p.suffix in {".map", ".pdb"}
+                 or p.relative_to(ROOT).as_posix() == "branding/README.txt"]
         self.assertEqual(found, [])
+
+    def test_compiled_packages_ship_no_source(self):
+        """Phase 2: when app/core, app/integrations and app/services are compiled, none of their .py/.pyc ships."""
+        from tests.support import COMPILED, COMPILED_PACKAGES
+
+        if not COMPILED:
+            self.skipTest("not a compiled build")
+        left = [p.relative_to(ROOT).as_posix() for top in COMPILED_PACKAGES for p in (ROOT / "app" / top).rglob("*")
+                if p.suffix in {".py", ".pyc"}] if (ROOT / "app").exists() else []
+        self.assertEqual(left, [])
+        self.assertEqual(len([p for top in COMPILED_PACKAGES for p in (ROOT / "app").glob(f"{top}.*") if p.suffix in {".pyd", ".so"}]), 3)
 
     def test_no_wrong_os_files_shipped(self):
         """v0.10.47: the macOS app carries no Windows-only files (report: Windows files in the macOS app)."""

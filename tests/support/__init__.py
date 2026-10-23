@@ -43,6 +43,17 @@ if TARGET == "bundle":
 
 DATA_ROOT = _DATA
 
+# Phase 2 builds ship app/core, app/integrations and app/services as compiled modules with no source.
+# Tests that read source text run on the source tree in CI and are skipped there.
+COMPILED_PACKAGES = ("core", "integrations", "services")
+COMPILED = TARGET == "bundle" and not (ROOT / "app" / "core" / "__init__.py").exists()
+
 
 def app_dir() -> Path:
     return ROOT / "app"
+
+
+def needs_source(obj):
+    import unittest
+
+    return unittest.skipIf(COMPILED, "compiled build: this check reads source and runs on the source tree")(obj)

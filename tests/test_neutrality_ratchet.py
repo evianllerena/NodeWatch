@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 
 import tests.support  # noqa: F401
-from tests.support import app_dir
+from tests.support import app_dir, needs_source
 
 APP = app_dir()
 BASELINE = Path(__file__).with_name("baselines") / "neutrality_baseline.json"
@@ -56,6 +56,7 @@ def measure() -> dict[str, int]:
     }
 
 
+@needs_source
 class Ratchet(unittest.TestCase):
     def test_counts_never_rise(self):
         baseline = json.loads(BASELINE.read_text("utf-8"))

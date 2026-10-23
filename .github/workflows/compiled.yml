@@ -1,0 +1,167 @@
+name: compiled
+
+# Phase 2 (Tier 1) trial: app/core, app/integrations and app/services compiled with Nuitka (free edition) against
+# Python 3.12, swapped into this commit's build, and tested on real Windows and macOS machines the same way as
+# the releases. Publishes nothing. The release workflow takes this over once it passes.
+on:
+  push:
+    branches: [main]
+    paths: [app/**, tools/compile_packages.py, tools/build_release.py, tests/**, .github/workflows/compiled.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-id:
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.id.outputs.id }}
+      version: ${{ steps.id.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: id
+        run: |
+          echo "id=$(python3 tools/build_release.py build-id)" >> "$GITHUB_OUTPUT"
+          echo "version=$(python3 tools/build_release.py version)" >> "$GITHUB_OUTPUT"
+
+  compile:
+    needs: build-id
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Nuitka (free edition)
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip > /dev/null
+          python -m pip install nuitka ordered-set zstandard
+          echo "::notice title=toolchain ${{ matrix.os }}::Python $(python -c 'import sys;print(sys.version.split()[0])'), Nuitka $(python -m nuitka --version | head -n 1)"
+      - name: Compile the three packages
+        shell: bash
+        run: python tools/compile_packages.py --build ${{ needs.build-id.outputs.id }} --out compiled 2>&1 | tee compile.log; exit ${PIPESTATUS[0]}
+      - name: Report
+        if: always()
+        shell: bash
+        run: |
+          ls -l compiled || true
+          echo "::notice title=compiled ${{ matrix.os }}::$(ls -l compiled 2>/dev/null | sed ':a;N;$!ba;s/\n/%0A/g')"
+          [ -f compile.log ] && echo "::notice title=compile log tail ${{ matrix.os }}::$(tail -n 40 compile.log | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' | head -c 3500)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compiled-${{ runner.os }}
+          path: compiled/
+
+  windows:
+    needs: [build-id, compile]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: compiled-Windows
+          path: compiled
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.7"
+          cache: false
+      - name: Launcher icon and version details
+        run: |
+          v=${{ needs.build-id.outputs.version }}
+          cd release/windows-launcher
+          go run github.com/tc-hib/go-winres@v0.3.3 simply --arch amd64 --icon ../resources/icon-256.png --manifest gui \
+            --file-version "$v.0" --product-version "$v.0" --file-description "NodeWatch" --product-name "NodeWatch" \
+            --copyright "BWN" --original-filename "NodeWatch.exe" --out rsrc
+      - name: Build the installed folder with the compiled packages
+        run: |
+          python3 tools/build_release.py windows-tree --installer shipped/v0.10.42/NodeWatch-windows-installer.exe \
+            --out-dir tree --build ${{ needs.build-id.outputs.id }} --compiled compiled | tee tree.txt
+          echo "::notice title=windows tree::$(grep -v '^changed\|^added\|^removed  app' tree.txt | sed ':a;N;$!ba;s/\n/%0A/g' | head -c 3000)"
+          python3 tools/build_release.py windows --installer shipped/v0.10.42/NodeWatch-windows-installer.exe \
+            --out installer-check.exe --build ${{ needs.build-id.outputs.id }} --compiled compiled > fit.txt 2>&1 \
+            && echo "::notice title=installer::compiled payload fits the shipped installer" \
+            || echo "::warning title=installer::$(tail -n 1 fit.txt)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-tree
+          path: tree/
+
+  windows-test:
+    needs: [build-id, windows]
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-tree
+          path: tree
+      - name: Run the suite with the bundled Windows Python on the compiled build
+        shell: pwsh
+        run: >
+          & "tree\NodeWatch\_internal\runtime\python\python.exe" -B tests\run.py -v --target bundle
+          --root "$PWD\tree\NodeWatch\_internal" --min-tests 60 --report test-result-windows.json
+      - name: Report test results
+        if: always()
+        run: python tests/tools/annotate.py test-result-windows.json
+      - name: Install the folder where the installer puts it, start it, and check it answers as this build
+        shell: pwsh
+        run: |
+          $programs = Join-Path $env:LOCALAPPDATA "Programs"
+          New-Item -ItemType Directory -Force -Path $programs | Out-Null
+          # Same layout as an install: Programs\NodeWatch\NodeWatch.exe and Programs\NodeWatch\_internal.
+          Copy-Item -Recurse -Force "tree\NodeWatch" $programs
+          ./tools/launcher_parity.ps1 -Root $programs -Seconds 120 -ExpectBuild "${{ needs.build-id.outputs.id }}"
+
+  macos-test:
+    needs: [build-id, compile]
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: compiled-macOS
+          path: compiled
+      - name: Build the app with the compiled packages
+        run: |
+          ditto -x -k shipped/v0.10.42/NodeWatch-macos.zip "$RUNNER_TEMP/build"
+          python3 tools/build_release.py macos --app "$RUNNER_TEMP/build/NodeWatch.app" --build ${{ needs.build-id.outputs.id }} --compiled compiled
+          codesign --force --deep --sign - "$RUNNER_TEMP/build/NodeWatch.app"
+          mkdir -p dist && ditto -c -k --keepParent "$RUNNER_TEMP/build/NodeWatch.app" dist/NodeWatch.zip
+      - name: Run the suite with the bundled macOS Python on the compiled build
+        run: |
+          rm -rf "$RUNNER_TEMP/check" && ditto -x -k dist/NodeWatch.zip "$RUNNER_TEMP/check"
+          I="$RUNNER_TEMP/check/NodeWatch.app/Contents/Resources/_internal"
+          "$I/runtime-macos/python-arm64/bin/python3.12" -B tests/run.py -v --target bundle --root "$I" --min-tests 60 --report test-result-macos.json
+      - name: Report test results
+        if: always()
+        run: python3 tests/tools/annotate.py test-result-macos.json
+      - name: Start the app and check the backend answers as this build
+        run: |
+          rm -rf "$RUNNER_TEMP/run" && ditto -x -k dist/NodeWatch.zip "$RUNNER_TEMP/run"
+          "$RUNNER_TEMP/run/NodeWatch.app/Contents/MacOS/NodeWatch" > "$RUNNER_TEMP/launcher.out" 2>&1 &
+          found=""
+          for i in $(seq 1 90); do
+            for port in $(seq 8765 8795); do
+              body=$(curl -s --max-time 1 "http://127.0.0.1:$port/api/status?probe=true" || true)
+              case "$body" in *'"build"'*) found="$port $body"; break 2;; esac
+            done
+            sleep 1
+          done
+          echo "::notice title=macOS launch::${found:-no backend answered within 90 s}"
+          for f in "$HOME/Library/Application Support/NodeWatch/logs/"*.log; do
+            [ -f "$f" ] && echo "::notice title=$(basename "$f")::$(tail -n 15 "$f" | sed ':a;N;$!ba;s/\n/%0A/g')"
+          done
+          pkill -f "NodeWatch.app" || true
+          case "$found" in *'${{ needs.build-id.outputs.id }}'*) ;; *) exit 1;; esac

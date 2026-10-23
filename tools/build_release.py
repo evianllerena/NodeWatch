@@ -88,7 +88,25 @@ def repo_app_files() -> dict[str, bytes]:
 WINDOWS_ONLY = ("app/core/app_window.py", "branding/startup.bmp")
 
 
-def new_internal_files(current: dict[str, bytes], build: str, platform: str) -> tuple[dict[str, bytes], list[str]]:
+# Phase 2 (Tier 1): packages shipped as compiled modules (tools/compile_packages.py) instead of source.
+COMPILED_PACKAGES = ("core", "integrations", "services")
+
+
+def load_compiled(folder: Path | None, build: str) -> dict[str, bytes] | None:
+    """{file name: bytes} of the compiled packages, checked to be built from this build id's source."""
+    if folder is None:
+        return None
+    stamp = (folder / "BUILD.txt").read_text("utf-8").strip()
+    if stamp != build:
+        raise SystemExit(f"compiled packages are for build {stamp!r}, not {build!r}")
+    files = {p.name: p.read_bytes() for p in folder.iterdir() if p.suffix in {".pyd", ".so"}}
+    if sorted(n.split(".")[0] for n in files) != sorted(COMPILED_PACKAGES):
+        raise SystemExit(f"expected one compiled module per package {COMPILED_PACKAGES}, found {sorted(files)}")
+    return files
+
+
+def new_internal_files(current: dict[str, bytes], build: str, platform: str,
+                       compiled: dict[str, bytes] | None = None) -> tuple[dict[str, bytes], list[str]]:
     """current: rel path under _internal -> bytes (shipped). Returns the new map and a change report."""
     if len(build) != len(SHIPPED_BUILD):
         raise SystemExit(f"build id must be {len(SHIPPED_BUILD)} characters: {build!r}")
@@ -111,15 +129,25 @@ def new_internal_files(current: dict[str, bytes], build: str, platform: str) -> 
             report.append(f"changed  {rel}")
         new[rel] = data
     # v0.10.44: no documentation in the installed app (internal notes stay in the repository).
-    dropped = [rel for rel in new if rel.startswith("docs/") or rel == "README.md"]
+    # v0.10.48: branding/README.txt is an internal note (it explained how to swap the splash image).
+    dropped = [rel for rel in new if rel.startswith("docs/") or rel in {"README.md", "branding/README.txt"}]
     for rel in dropped:
         del new[rel]
     if dropped:
-        report.append(f"removed  docs/ and README.md ({len(dropped)} files)")
+        report.append(f"removed  docs/, README.md and branding/README.txt ({len(dropped)} files)")
     if platform == "macos":
         for rel in WINDOWS_ONLY:
             if new.pop(rel, None) is not None:
                 report.append(f"removed  {rel} (Windows only)")
+    if compiled is not None:
+        # The packages' source is replaced by their compiled modules (stamped with the build id before compiling).
+        gone = [rel for rel in new if rel.split("/")[0] == "app" and len(rel.split("/")) > 2
+                and rel.split("/")[1] in COMPILED_PACKAGES]
+        for rel in gone:
+            del new[rel]
+        for name, data in compiled.items():
+            new[f"app/{name}"] = data
+        report.append(f"compiled: {len(gone)} source files of app/{{{','.join(COMPILED_PACKAGES)}}} replaced by {sorted(compiled)}")
     version, placeholder = repo_version()
     if f"const FRONTEND_VERSION = '{version}';" not in new["app/static/core.js"].decode("utf-8"):
         raise SystemExit(f"app/static/core.js FRONTEND_VERSION is not {version} (set both with the version)")
@@ -130,7 +158,8 @@ def new_internal_files(current: dict[str, bytes], build: str, platform: str) -> 
         if rel.startswith("app/") and not rel.startswith("app/bin/") and placeholder.encode() in new[rel]:
             new[rel] = new[rel].replace(placeholder.encode(), build.encode())
             stamped.append(rel)
-    if not {"app/core/version.py", "app/static/core.js"} <= set(stamped):
+    required = {"app/static/core.js"} if compiled is not None else {"app/core/version.py", "app/static/core.js"}
+    if not required <= set(stamped):
         raise SystemExit(f"build id not found where expected; stamped: {stamped}")
     report.append(f"build id {build} written to: {', '.join(stamped)}")
     old_manifest = json.loads(current["integrity.json"])
@@ -265,13 +294,32 @@ def write_payload(entries, target_size: int) -> bytes:
     return bytes(body + cds + eocd)
 
 
-def build_windows(installer: Path, out: Path, build: str) -> None:
+def build_windows_tree(installer: Path, out_dir: Path, build: str, compiled: dict[str, bytes] | None) -> None:
+    """The installed folder (NodeWatch/NodeWatch.exe and NodeWatch/_internal) written out, without an installer:
+    used while a compiled payload no longer fits the shipped installer's fixed payload slot."""
+    exe = installer.read_bytes()
+    _, _, _, entries = read_payload(exe)
+    prefix = "NodeWatch/_internal/"
+    current = {e["name"][len(prefix):]: inflate(e) for e in entries if e["name"].startswith(prefix) and not e["name"].endswith("/")}
+    new, report = new_internal_files(current, build, "windows", compiled)
+    launcher = compile_windows_launcher(sha256(new["integrity.json"]), build)
+    root = out_dir / "NodeWatch"
+    for rel, data in new.items():
+        path = root / "_internal" / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    (root / "NodeWatch.exe").write_bytes(launcher)
+    print("\n".join(report))
+    print(f"tree written to {root} ({len(new)} files), manifest {sha256(new['integrity.json'])}, build {build}")
+
+
+def build_windows(installer: Path, out: Path, build: str, compiled: dict[str, bytes] | None = None) -> None:
     exe = installer.read_bytes()
     start, size, _, entries = read_payload(exe)
     prefix = "NodeWatch/_internal/"
     current = {e["name"][len(prefix):]: inflate(e) for e in entries if e["name"].startswith(prefix) and not e["name"].endswith("/")}
     launcher_entry = next(e for e in entries if e["name"] == "NodeWatch/NodeWatch.exe")
-    new, report = new_internal_files(current, build, "windows")
+    new, report = new_internal_files(current, build, "windows", compiled)
     launcher = compile_windows_launcher(sha256(new["integrity.json"]), build)
 
     kept = []
@@ -302,12 +350,16 @@ def build_windows(installer: Path, out: Path, build: str) -> None:
 
 
 # --------------------------------------------------------------------------- macOS
-def build_macos(app: Path, build: str) -> None:
+def build_macos(app: Path, build: str, compiled: dict[str, bytes] | None = None) -> None:
     internal = app / "Contents" / "Resources" / "_internal"
     current = {p.relative_to(internal).as_posix(): p.read_bytes() for p in internal.rglob("*") if p.is_file()}
-    new, report = new_internal_files(current, build, "macos")
+    new, report = new_internal_files(current, build, "macos", compiled)
     for rel in set(current) - set(new):
         (internal / rel).unlink()
+    for top in COMPILED_PACKAGES if compiled is not None else ():
+        for d in sorted((internal / "app" / top).rglob("*"), key=lambda x: len(x.parts), reverse=True) + [internal / "app" / top]:
+            if d.is_dir() and not any(d.iterdir()):
+                d.rmdir()
     shutil.rmtree(internal / "docs", ignore_errors=True)
     for rel, data in new.items():
         if current.get(rel) != data:
@@ -333,9 +385,16 @@ def main() -> int:
     w.add_argument("--installer", type=Path, required=True)
     w.add_argument("--out", type=Path, required=True)
     w.add_argument("--build", required=True)
+    w.add_argument("--compiled", type=Path, help="folder from tools/compile_packages.py (Phase 2)")
+    t = sub.add_parser("windows-tree")
+    t.add_argument("--installer", type=Path, required=True)
+    t.add_argument("--out-dir", type=Path, required=True)
+    t.add_argument("--build", required=True)
+    t.add_argument("--compiled", type=Path)
     m = sub.add_parser("macos")
     m.add_argument("--app", type=Path, required=True)
     m.add_argument("--build", required=True)
+    m.add_argument("--compiled", type=Path)
     sub.add_parser("build-id")
     sub.add_parser("version")
     args = ap.parse_args()
@@ -344,9 +403,11 @@ def main() -> int:
     elif args.cmd == "version":
         print(repo_version()[0])
     elif args.cmd == "windows":
-        build_windows(args.installer, args.out, args.build)
+        build_windows(args.installer, args.out, args.build, load_compiled(args.compiled, args.build))
+    elif args.cmd == "windows-tree":
+        build_windows_tree(args.installer, args.out_dir, args.build, load_compiled(args.compiled, args.build))
     else:
-        build_macos(args.app, args.build)
+        build_macos(args.app, args.build, load_compiled(args.compiled, args.build))
     return 0
 
 
