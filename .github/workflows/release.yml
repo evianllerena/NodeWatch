@@ -1,0 +1,148 @@
+name: release
+
+# Builds the pilot downloads from the shipped v0.10.42 builds plus this commit's app/ source
+# (tools/build_release.py), tests them on real Windows and macOS machines, and publishes both files as a
+# private GitHub prerelease. Runs when app code or the build tool changes on main, or on demand.
+on:
+  push:
+    branches: [main]
+    paths: [app/**, docs/*.md, tools/build_release.py, tools/extract_windows_payload.py, .github/workflows/release.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-id:
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.id.outputs.id }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: id
+        run: echo "id=$(python3 tools/build_release.py build-id)" >> "$GITHUB_OUTPUT"
+
+  windows-build:
+    needs: build-id
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the shipped installer is the recorded file
+        run: echo "808d30c555e58faba5066f42593446ce09e2190563195cf5c7176fdc5be1d2b0  shipped/v0.10.42/NodeWatch-windows-installer.exe" | sha256sum -c
+      - name: Build the installer
+        run: |
+          mkdir -p dist
+          python3 tools/build_release.py windows --installer shipped/v0.10.42/NodeWatch-windows-installer.exe \
+            --out dist/NodeWatch-Setup-${{ needs.build-id.outputs.id }}.exe --build ${{ needs.build-id.outputs.id }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/
+
+  windows-test:
+    needs: [build-id, windows-build]
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: dist
+      - name: Extract the payload and verify it against its integrity.json
+        shell: pwsh
+        run: python tools/extract_windows_payload.py (Get-Item dist\*.exe).FullName "${{ runner.temp }}\nw"
+      - name: Run the suite with the bundled Windows Python
+        shell: pwsh
+        run: >
+          & "${{ runner.temp }}\nw\NodeWatch\_internal\runtime\python\python.exe" tests\run.py -v --target bundle
+          --root "${{ runner.temp }}\nw\NodeWatch\_internal" --min-tests 66 --report test-result-windows.json
+      - name: Report test results
+        if: always()
+        run: python tests/tools/annotate.py test-result-windows.json
+      - name: Install silently with the new installer
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath (Get-Item dist\*.exe).FullName -ArgumentList "/S" -PassThru -Wait
+          Write-Output "::notice title=installer::exit code $($p.ExitCode)"
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter NodeWatch.exe -ErrorAction SilentlyContinue |
+            Where-Object { $_.Directory.Name -eq "NodeWatch" } | Select-Object -First 1
+          if (-not $exe) { throw "installed NodeWatch.exe not found under $env:LOCALAPPDATA\Programs" }
+          Write-Output "::notice title=installer::installed at $($exe.DirectoryName)"
+          "NW_INSTALLED=$(Split-Path $exe.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Get-Process NodeWatch* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+      - name: Start the installed launcher and record what it does
+        shell: pwsh
+        run: ./tools/launcher_parity.ps1 -Root $env:NW_INSTALLED -Seconds 120 -ExpectBuild "${{ needs.build-id.outputs.id }}"
+
+  macos:
+    needs: build-id
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the shipped archive is the recorded file
+        run: echo "eaa8bc7e23d4323c3432dc593c21a6f48c4dbee5b5d4c2ed4f9f66b809c5fd4f  shipped/v0.10.42/NodeWatch-macos.zip" | shasum -a 256 -c
+      - name: Build the app
+        run: |
+          ditto -x -k shipped/v0.10.42/NodeWatch-macos.zip "$RUNNER_TEMP/build"
+          python3 tools/build_release.py macos --app "$RUNNER_TEMP/build/NodeWatch.app" --build ${{ needs.build-id.outputs.id }}
+          codesign --force --deep --sign - "$RUNNER_TEMP/build/NodeWatch.app"
+          codesign --verify --deep --strict --verbose=2 "$RUNNER_TEMP/build/NodeWatch.app"
+          mkdir -p dist
+          ditto -c -k --keepParent "$RUNNER_TEMP/build/NodeWatch.app" "dist/NodeWatch-macOS-${{ needs.build-id.outputs.id }}.zip"
+      - name: Run the suite with the bundled macOS Python
+        run: |
+          rm -rf "$RUNNER_TEMP/check" && ditto -x -k dist/*.zip "$RUNNER_TEMP/check"
+          I="$RUNNER_TEMP/check/NodeWatch.app/Contents/Resources/_internal"
+          "$I/runtime-macos/python-arm64/bin/python3.12" tests/run.py -v --target bundle --root "$I" --min-tests 66 --report test-result-macos.json
+      - name: Report test results
+        if: always()
+        run: python3 tests/tools/annotate.py test-result-macos.json
+      - name: Start the app and check the backend answers as this build
+        run: |
+          APP="$RUNNER_TEMP/check/NodeWatch.app"
+          "$APP/Contents/MacOS/NodeWatch" > "$RUNNER_TEMP/launcher.out" 2>&1 &
+          found=""
+          for i in $(seq 1 90); do
+            for port in $(seq 8765 8795); do
+              body=$(curl -s --max-time 1 "http://127.0.0.1:$port/api/status?probe=true" || true)
+              case "$body" in *'"build"'*) found="$port $body"; break 2;; esac
+            done
+            sleep 1
+          done
+          echo "::notice title=macOS launch::${found:-no backend answered within 90 s}"
+          tail -n 20 "$RUNNER_TEMP/launcher.out" | sed 's/^/launcher: /'
+          for f in "$HOME/Library/Application Support/NodeWatch/logs/"*.log; do
+            [ -f "$f" ] && echo "::notice title=$(basename "$f")::$(tail -n 15 "$f" | sed ':a;N;$!ba;s/\n/%0A/g')"
+          done
+          pkill -f "NodeWatch.app" || true
+          case "$found" in *'${{ needs.build-id.outputs.id }}'*) ;; *) echo "backend did not answer as this build"; exit 1;; esac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/
+
+  publish:
+    needs: [build-id, windows-test, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish a private prerelease with both downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          gh release create "pilot-${{ needs.build-id.outputs.id }}" * --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+            --prerelease --title "Pilot build ${{ needs.build-id.outputs.id }}" \
+            --notes "Built from commit ${{ github.sha }} on top of the shipped v0.10.42 binaries. Not code-signed yet (Windows SmartScreen and macOS Gatekeeper will warn). Tested on GitHub Windows and macOS runners before publishing."

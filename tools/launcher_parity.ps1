@@ -5,7 +5,7 @@ processes it starts, window titles (a message box shows as a title), which port 
 and the NodeWatch log files under %LOCALAPPDATA%\NodeWatch. Everything is then stopped.
 Results are printed as GitHub annotations, because run logs are not readable from outside.
 #>
-param([Parameter(Mandatory)] [string] $Root, [int] $Seconds = 120)
+param([Parameter(Mandatory)] [string] $Root, [int] $Seconds = 120, [string] $ExpectBuild = "")
 
 $ErrorActionPreference = "Continue"
 function Note([string] $title, [string] $text) {
@@ -88,4 +88,8 @@ if (Test-Path $data) {
 # Stop everything this run started.
 Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and ($_.ExecutablePath -like "$Root*" -or $_.ExecutablePath -like "$data*") } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+if ($ExpectBuild -and -not ($answered -and $answered.Contains("`"build`":`"$ExpectBuild`""))) {
+    Write-Output "::error title=parity::the backend did not answer as build $ExpectBuild"
+    exit 1
+}
 exit 0
