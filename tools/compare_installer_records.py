@@ -33,6 +33,9 @@ def norm(name: str, text: str) -> list[str]:
         line = re.sub(r"\|\d+$", "|<size>", line)  # file sizes
         line = re.sub(r"files under _internal: \d+, \d+ bytes", "files under _internal: <n>", line)
         line = re.sub(r"processes now: .*", "processes now: <started>", line)
+        line = re.sub(r"Space needed: about \d+ MB", "Space needed: about <n> MB", line)  # the files differ per release
+        if "shortcuts" in name and "nodewatch" not in line.lower():
+            continue  # shortcuts the runner image itself creates in the background
         if "files" in name or "registry" in name or "processes" in name:
             low = line.lower()
             if "nodewatch" not in low or "\\app-window\\" in low or "\\pycache\\" in low or "\\logs\\" in low or "\\state\\" in low:
