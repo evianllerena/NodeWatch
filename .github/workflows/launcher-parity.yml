@@ -14,14 +14,26 @@ permissions:
 jobs:
   shipped-v0-10-42:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # shared: a folder other users can write to (expect the launcher to offer a profile install).
+        # profile: a folder under the user's own profile, as a normal per-user install.
+        folder: [shared, profile]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Pick the folder
+        shell: pwsh
+        run: |
+          $root = if ("${{ matrix.folder }}" -eq "profile") { Join-Path $env:LOCALAPPDATA "NWParity" } else { "${{ runner.temp }}\nw" }
+          "NW_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Extract the shipped installer payload
-        run: python tools/extract_windows_payload.py shipped/v0.10.42/NodeWatch-windows-installer.exe "${{ runner.temp }}\nw"
+        shell: pwsh
+        run: python tools/extract_windows_payload.py shipped/v0.10.42/NodeWatch-windows-installer.exe $env:NW_ROOT
       - name: Start the shipped launcher and record what it does
         shell: pwsh
-        run: ./tools/launcher_parity.ps1 -Root "${{ runner.temp }}\nw" -Seconds 120
+        run: ./tools/launcher_parity.ps1 -Root $env:NW_ROOT -Seconds 120
