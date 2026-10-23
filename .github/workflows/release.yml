@@ -268,13 +268,19 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
+          name: windows
           path: dist
-          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos
+          path: dist
       - name: Publish a private prerelease with both downloads
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd dist
+          ls -l
+          [ "$(ls | sort | tr '\n' ' ')" = "NodeWatch.exe NodeWatch.zip " ] || { echo "::error::expected only NodeWatch.exe and NodeWatch.zip, found: $(ls)"; exit 1; }
           sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
           gh release create "v${{ needs.build-id.outputs.version }}-${{ github.sha }}" * --repo "${{ github.repository }}" --target "${{ github.sha }}" \
