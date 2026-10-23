@@ -685,6 +685,15 @@ class MistClient:
                     message = raw
             except Exception:
                 message = str(exc)
+            if exc.code == 403 and method != "GET":  # v0.10.46: a refused change is Mist's answer for this key, now
+                from app.integrations.base import refused_text
+
+                fail(
+                    f"{refused_text('Mist', change=True)} (Mist API HTTP 403: {message})",
+                    str(message),
+                    403,
+                    exc,
+                )
             fail(f"Mist API HTTP {exc.code}: {message}", str(message), exc.code, exc)
         except URLError as exc:
             fail(f"Unable to reach Mist API: {exc.reason}", str(exc.reason), None, exc)

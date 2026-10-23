@@ -35,7 +35,7 @@ from urllib.request import HTTPRedirectHandler, Request
 from app.core.config import DATA_ROOT
 from app.core.file_utils import locked_json_update
 from app.integrations import api_timing
-from app.integrations.base import IntegrationError, ProviderAdapter, ProviderDescriptor, ProviderHealth, registry
+from app.integrations.base import IntegrationError, ProviderAdapter, ProviderDescriptor, ProviderHealth, refused_text, registry
 from app.core.security import redact_text
 from app.core.version import APP_VERSION
 from app.integrations.contracts import ALL_CAPABILITIES, CAPABILITY_LABELS, CAPABILITY_PROTOCOLS
@@ -946,6 +946,9 @@ class HttpJsonClient:
             if 300 <= status < 400:
                 raise self._fail(_redirect_message(where, status, exc.headers, self.base_url), status=status) from None
             text = f"{where} → HTTP {status}" + (f": {excerpt}" if excerpt else "")
+            if status == 403 and method.upper() != "GET":  # v0.10.46: the system's answer for this account, now
+                # (reads keep their per-connector setup hints: a refused read is often a wrong scope or URL)
+                text = f"{text}. {refused_text(self.product)}"
             raise self._fail(text, code=_HTTP_CODES.get(status, "PROVIDER_ERROR"), status=status) from None
         except ResponseTooLarge:
             raise self._fail(

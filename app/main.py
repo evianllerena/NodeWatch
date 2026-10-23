@@ -6,7 +6,7 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.exception_handlers import http_exception_handler
@@ -19,7 +19,6 @@ from app.core import dns_cache
 dns_cache.install()  # v0.10.23: last-good DNS answers survive the resolver timeouts seen in the field
 
 from app.core.auth import PermissionDenied, bind_principal, get_auth_provider, unbind_principal
-from app.core.route_permissions import enforce_route_permission
 from app.core.deployment import get_deployment
 from app.core.security import WRITE_REQUEST_TOKEN, redact_sensitive, redact_text
 from app.modules.system.presence import TRACKER as PRESENCE
@@ -300,7 +299,7 @@ for router in (
     ui_router,
 ):
     # Phase 1: every state-changing route checks its permission (desktop: always granted).
-    app.include_router(router, dependencies=[Depends(enforce_route_permission)])
+    app.include_router(router)
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -37,52 +37,60 @@ class _FakeRequest:
 # ------------------------------------------------------------------ review: Medium
 
 
-class PermissionCoverage(unittest.TestCase):
-    """Medium: TRIAGE / SETTINGS_ADMIN declared but enforced nowhere. Phase 1 maps every unsafe route."""
+class RouteChangeReview(unittest.TestCase):
+    """Every state-changing route is reviewed (app/core/route_changes.py). v0.10.46: rights over connected
+    systems come from the account each connection uses, decided by that system per call; NodeWatch adds no
+    permission table of its own."""
 
     @classmethod
     def setUpClass(cls):
         from tests.support.asgi import api_routes
         import app.main as main
-        from pathlib import Path
 
         cls.unsafe = sorted(f"{m} {p}" for m, p, _ in api_routes(main.app) if m != "GET")
-        cls.map = json.loads((Path(__file__).with_name("baselines") / "permission_map.json").read_text("utf-8"))
 
-    def test_every_unsafe_route_is_in_the_permission_map(self):
-        missing = [r for r in self.unsafe if r not in self.map]
-        self.assertEqual(missing, [], "new unsafe route: add it to tests/baselines/permission_map.json")
+    def test_every_unsafe_route_is_reviewed(self):
+        from app.core.route_changes import ROUTE_CHANGES
 
-    def test_no_unsafe_route_is_unreviewed(self):
-        unreviewed = [r for r, v in self.map.items() if v == "unreviewed"]
-        self.assertEqual(unreviewed, [])
+        self.assertEqual([r for r in self.unsafe if r not in ROUTE_CHANGES], [], "new unsafe route: add it to app/core/route_changes.py")
+        self.assertEqual([r for r in ROUTE_CHANGES if r not in self.unsafe], [], "route_changes.py lists a route that no longer exists")
+        self.assertLessEqual(set(ROUTE_CHANGES.values()), {"connection", "nodewatch", "none"})
 
-    def test_permission_map_matches_the_app(self):
-        from app.core.route_permissions import ROUTE_PERMISSIONS
+    def test_a_refused_mist_change_says_so_plainly(self):
+        import io
+        from unittest import mock
+        from urllib.error import HTTPError
 
-        self.assertEqual(self.map, {k: (v or "none") for k, v in ROUTE_PERMISSIONS.items()})
+        from app.core.config import Settings
+        from app.services import mist_client as mc
 
-    def test_triage_and_settings_permissions_are_enforced_somewhere(self):
-        """A principal without permissions gets 403 from every route that names one, before the route runs."""
-        import app.main as main
-        from app.core.auth import AuthResult, Principal
-        from app.core.route_permissions import ROUTE_PERMISSIONS
-        from tests.support.asgi import Client
+        org = "11111111-1111-1111-1111-111111111111"
+        client = mc.MistClient(Settings(org_id=org, token="t" * 40))
 
-        nobody = Principal(id="t", display="t", kind="user", permissions=frozenset())
-        real = main.AUTH_PROVIDER.authenticate
-        main.AUTH_PROVIDER.authenticate = lambda request, path: AuthResult(principal=nobody)
-        try:
-            c = Client(main.app)
-            guarded = [k for k, v in ROUTE_PERMISSIONS.items() if v]
-            self.assertTrue({"alerts.triage", "settings.admin"} <= set(ROUTE_PERMISSIONS.values()))
-            for key in guarded:
-                method, path = key.split(" ", 1)
-                url = re.sub(r"\{[^}]+\}", "x", path)
-                with self.subTest(route=key):
-                    self.assertEqual(c.request(method, url, json_body={}).status, 403)
-        finally:
-            main.AUTH_PROVIDER.authenticate = real
+        class Refuses:
+            def open(self, req, timeout=None):
+                raise HTTPError(req.full_url, 403, "Forbidden", {}, io.BytesIO(b'{"detail": "Unauthorized"}'))
+
+        with mock.patch.object(mc, "_shared_opener", lambda *a, **k: Refuses()), mock.patch.object(client, "_record_timing"):
+            with self.assertRaises(mc.MistApiError) as caught:
+                client.ack_alarm("22222222-2222-2222-2222-222222222222")
+            self.assertEqual(caught.exception.status_code, 403)
+            self.assertIn("Mist refused this change", str(caught.exception))
+            with self.assertRaises(mc.MistApiError) as read:
+                client.get(f"/api/v1/orgs/{org}/sites")
+            self.assertNotIn("refused this change", str(read.exception))
+
+    def test_no_nodewatch_permission_gate_on_routes(self):
+        self.assertNotIn("route_permissions", _src("main.py"))
+
+    def test_vendor_refusal_is_explained_neutrally(self):
+        from app.integrations.base import refused_text
+
+        text = refused_text("Acme Cloud", change=True)
+        self.assertIn("Acme Cloud refused this change", text)
+        self.assertIn("at the moment of each call", text)
+        self.assertIn("refused_text", _src("services/mist_client.py"))
+        self.assertIn("refused_text", _src("integrations/connectors/sdk.py"))
 
 
 class OwnerCheckDisclosure(unittest.TestCase):

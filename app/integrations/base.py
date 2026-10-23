@@ -15,6 +15,18 @@ class IntegrationError(RuntimeError):
         self.status_code = status_code
 
 
+def refused_text(product: str, *, change: bool = False) -> str:
+    """Plain explanation of an HTTP 403 from any connected system (v0.10.46).
+
+    NodeWatch never decides, stores or assumes what a connection's account may do. The system answers on every
+    call, so a right granted or removed there applies at once."""
+    what = "this change" if change else "this request"
+    return (
+        f"{product} refused {what}: the account this connection signs in with is not allowed to do it. "
+        f"Its rights are set in {product}, and NodeWatch follows them as they are at the moment of each call."
+    )
+
+
 @dataclass(frozen=True)
 class ProviderDescriptor:
     provider_id: str
