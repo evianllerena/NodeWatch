@@ -1,0 +1,35 @@
+NodeWatch v0.9.2 — 24-point verification pass
+Build: 2026-10-08-v0.9.2-verification-pass
+
+1. Device Intelligence Test Connection — FIXED: protected endpoint required; provider error payloads fail the test.
+2. Device Finder MATCHES layout — FIXED: compact search/filter/sort/pagination toolbar.
+3. Site + Investigate lists site devices — FIXED: empty search allowed when a site is selected.
+4. Site + criteria truncated results — FIXED: old 30/source and 75-total caps removed; site searches request up to 1000/source. 706-result regression passes 706/706.
+5. Pagination — FIXED: 50/100/200 page sizes, Previous/Next, page information.
+6. Traffic & Sessions placement — FIXED UI: now under Security & Access. DATA DEPENDENCY remains: Device Intelligence does not supply Strata firewall traffic/session logs; a validated traffic-log provider is still required for real rule/session rows.
+7. More Information side drawer — FIXED: rendered inline on selected-device page.
+8. Splunk HEC — IMPROVED/FIXED VALIDATION: likely Splunk Web URLs are rejected at save; errors identify HEC endpoint and timeout/network checks. Live delivery still requires the organization's correct HEC endpoint, token, firewall/DNS/TLS reachability.
+9. Fresh PC Python dependency — ARCHITECTURE READY / RELEASE DEPENDENCY OPEN: launcher now prefers bundled _internal\\runtime\\NodeWatchBackend.exe. Build-Bundled-Runtime.ps1 was added. This Linux-produced package cannot include the Windows CPython embeddable binary, so compatibility fallback still requires installed Python if the bundled runtime folder is absent.
+10. Process naming — ARCHITECTURE READY / RELEASE DEPENDENCY OPEN: bundled runtime is named NodeWatchBackend.exe; compatibility fallback still runs python.exe. Fully resolved when #9 bundled runtime is included in a Windows-built release.
+11. Notification Hub badge — FIXED: navigation badge reflects current down/notification count (99+ cap).
+12. Mist condition AP link — PARTIAL/SAFE: AP names are clickable and open the configured Mist cloud/site Insights page; AP identifier is copied for Mist search. Exact AP SPA deep-link syntax is not treated as stable/documented, so NodeWatch does not invent a brittle AP-specific hash route.
+13. Device Finder site list — FIXED: alphabetical + site search.
+14. Port Operations — FIXED: search plus speed/PoE filters and sort; table includes port, link, speed, PoE draw, auth, MAC, neighbor/manufacturer where Mist reports it.
+15. VC Cancel mutation — FIXED: Cancel/X path exits before any working-member mutation.
+16. VC main-page diff legend — FIXED: removed.
+17. Chassis Manager site list — FIXED: alphabetical + site search.
+18. Change Verifier + Config Vault — IMPLEMENTED: single Change & Config Vault navigation module; protected snapshots, config inspection, drift, retention, optional daily snapshots, diff classification, who/what/when verification history, guarded restore.
+19. PoE Power Safety — IMPROVED: per-port current draw searchable/sortable; broader real Mist budget-field detection; optional derived minimum only when explicit per-port limits exist. No fabricated chassis budget when Mist does not report one.
+20. Event Relay — FIXED: search/filter/sort, readable local timestamps, red deleted/removed, green committed/changed, yellow unclassified rows.
+21. Operations Assistant — IMPROVED: added site inventory/count and PoE intents while preserving targeted device/alarm/security/firmware/change analysis and no external AI data disclosure.
+22. Asset Library — FIXED: search + sort.
+23. Activity Log — FIXED: unified search + sort across Mist audit and local NodeWatch changes.
+24. Requires Attention site placement — FIXED: site moved to a top-right tag in the notification card rather than mixed into device text.
+
+Verification performed:
+- Python compileall: PASS
+- JavaScript syntax check for every module: PASS
+- Duplicate HTML IDs: PASS (0 duplicates)
+- Application import/routes: PASS (v0.9.2, 72 routes)
+- Device Finder 706-result regression: PASS (706/706 site+criteria and 706/706 site-only)
+- Windows launcher cross-build: PASS (PE32+ GUI x86-64)

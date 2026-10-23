@@ -1,0 +1,49 @@
+NodeWatch v0.9.1 — Investigation Console QA Plan
+================================================
+
+Version: 0.9.1
+Build: 2026-10-07-v0.9.1-investigation-console
+
+1. Startup / integrity
+- Launch NodeWatch.exe and verify backend reports v0.9.1 with the exact build above.
+- Verify runtime integrity validation passes.
+
+2. Site scope
+- Select a site and search IP/MAC/hostname.
+- Verify every returned row has the selected Mist Site ID.
+- Verify provider-only intelligence with no correlated site is excluded while a site filter is active.
+- Change site and confirm the previous site's clients disappear.
+
+3. Result workflow
+- Result toolbar remains visible.
+- Filter by result text, Wired/Wireless/Infrastructure, device type and vendor.
+- Sort by relevance, last seen, hostname, IP, vendor and device type.
+- Exact IP and exact MAC searches auto-select the matching result; non-exact searches require an engineer click.
+
+4. Investigation layout
+- No Fields button, view preset selector, read-only label or chevron sections remain.
+- Main flow is Device + Live Connection, Security & Access, Conditions when non-zero, Traffic & Sessions.
+- No empty Conditions section renders.
+- Duplicate alarm types are grouped with an occurrence count.
+- RSSI label renders normally and values show dBm.
+
+5. Refresh behavior
+- Selected device shows LIVE and a visible 15-second countdown.
+- Countdown changes to Updating during refresh.
+- Hidden browser tab shows paused state; returning resumes a new 15-second cycle.
+- Manual Refresh now still works.
+
+6. More drawer
+- More opens a right drawer.
+- Infrastructure, available identity/NAC, current path, Marvis findings, diagnostics and raw attributes are kept out of the main flow.
+- Missing/empty optional blocks do not create giant empty panels.
+
+7. Traffic phase gate
+- Traffic & Sessions remains visible, with Security Rule as the first column.
+- This build must NOT invent traffic/session values.
+- When the traffic provider is unavailable, show a compact source-not-connected explanation.
+- When a validated provider later returns traffic_sessions, the table renders rule, app, destination, port, action, data and last seen.
+
+8. Regression
+- Dashboard, Alerting, VC, Operations, Validator, Backup, PoE, Security, SIEM, AI Engineer, Inventory, History and Settings still load.
+- Palo Alto Device Security enrichment and Mist physical attachment correlation remain read-only.

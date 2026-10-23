@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+# Release build outputs (tools/stage_runtime.py, release/backend_host): never commit
+/runtime/

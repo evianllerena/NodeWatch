@@ -1,0 +1,12 @@
+NodeWatch v0.9.2 runtime behavior
+
+Preferred self-contained layout:
+  NodeWatch.exe                     native launcher
+  _internal\runtime\NodeWatchBackend.exe   bundled backend runtime
+
+When the bundled backend runtime is present, NodeWatch does not require a separately installed Python interpreter and Task Manager shows NodeWatch.exe plus NodeWatchBackend.exe.
+
+Compatibility fallback:
+If the bundled backend runtime is absent, the launcher can still prepare the legacy private Python runtime from Python 3.10+ installed on the PC. That fallback process is python.exe and is retained only for compatibility.
+
+To close a self-contained NodeWatch release, close/terminate NodeWatch.exe and NodeWatchBackend.exe. A future production package should ship the bundled runtime and remove the compatibility fallback after validation.

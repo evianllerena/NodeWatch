@@ -1,0 +1,10 @@
+line-length = 120
+target-version = "py310"
+
+[lint]
+# Pyflakes (undefined names, unused imports/variables), syntax errors, and a few bug-prone patterns.
+select = ["F", "E9", "B006", "B008", "B023", "PLE"]
+ignore = ["B008"]  # FastAPI's Body(...)/Query(...) defaults are intentional
+
+[format]
+quote-style = "preserve"

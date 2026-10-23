@@ -1,0 +1,75 @@
+NodeWatch v0.9.0 — Unified Device Finder QA Plan
+================================================
+
+RELEASE ID
+Version: 0.9.0
+Build: 2026-10-07-v0.9.0-unified-device-finder
+
+1. STARTUP / RELEASE INTEGRITY
+- Launch NodeWatch.exe on Windows.
+- Verify launcher reaches the exact v0.9.0 backend.
+- Verify no older NodeWatch process is reused.
+- Verify integrity validation succeeds with the shipped _internal directory.
+- Verify modifying a protected runtime file causes launcher integrity failure.
+
+2. EXISTING MIST REGRESSION
+- Start with only existing Mist credentials configured.
+- Device Finder IP/MAC/hostname search behaves as before.
+- Wired client detail still resolves switch/member/port/VLAN.
+- Wireless client detail still renders AP/SSID/radio/client detail where available.
+- Existing Dashboard, Alerting, VC, Operations, Validator, Backup, PoE, Security, SIEM, AI Engineer, Inventory, History and Settings pages load.
+
+3. FIELD DRAWER
+- Open Device Finder -> Fields.
+- Standard/Network/Security/Identity/Full/Custom presets work.
+- Search within available fields works.
+- Checkbox changes update the displayed device fields without navigation.
+- Save My View survives a page reload using local browser storage.
+- Reset Default restores the default view.
+- Normal UI does not show provider/source badges.
+
+4. PALO ALTO DEVICE SECURITY CONFIGURATION
+- Settings -> Device Intelligence.
+- Test invalid credentials: sanitized error only, no secret in UI/logs.
+- Test valid credentials: health probe succeeds.
+- Save enabled integration.
+- Confirm credentials are not written to integrations.json.
+- Confirm Windows Credential Manager contains the NodeWatch integration credential entry.
+- Reload app: fields remain blank/masked in Settings, configured state remains known.
+
+5. UNIFIED CORRELATION
+Known control endpoint:
+- Use a currently active device already validated in Device Security and Mist.
+- Keep production IP/MAC/serial identifiers out of the release package and QA notes.
+
+Tests:
+- Search IP and confirm Device Security resolves the MAC and Device Finder resolves Mist physical attachment.
+- Search MAC and confirm unified identity + physical attachment.
+- Confirm no visible "Palo Alto" or "Mist" source badges in Device Finder.
+- Confirm security/intelligence fields appear only when available/selected.
+- Re-test a varied set of endpoints (PC, printer, phone/IoT, alternate licensed site).
+
+6. PARTIAL / FAILURE STATES
+- Disable Device Intelligence: Mist-only Device Finder still works.
+- Simulate invalid/expired OAuth credential: Device Finder remains usable with available Mist data.
+- Disconnect network/API temporarily: provider failure does not crash Device Finder.
+- Query endpoint outside Device Security coverage: no false "device does not exist" assumption in the UI.
+
+7. OAUTH TOKEN BEHAVIOR
+- Verify access token is never written to integrations.json, logs, diagnostics, SQLite, or browser response.
+- Verify repeated queries reuse valid memory token.
+- Verify near-expiry token refreshes automatically.
+- Verify 401 invalidates token and retries authentication only once.
+
+8. DIAGNOSTIC PACKAGE SECURITY
+- Place test strings resembling Bearer token, Basic auth, JWT, client_secret, access_token and known credential values in a diagnostic text file.
+- Export Diagnostics.
+- Verify exported copy contains redacted values.
+- Verify binary/non-UTF-8 test file is skipped.
+- Verify sanitization_report.json records skipped file without contents.
+- Verify ZIP does not contain actual Mist token, Palo Alto Client Secret, OAuth bearer token, Splunk HEC token or webhook secret URL.
+
+9. TRAFFIC PHASE GATE
+- v0.9.0 must NOT claim Traffic & Sessions is operational.
+- Traffic section remains hidden/disabled until live SLS query capability is verified.
+- No arbitrary logging query string is accepted from browser in this release.

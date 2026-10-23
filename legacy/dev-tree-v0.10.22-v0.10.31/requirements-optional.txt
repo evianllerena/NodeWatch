@@ -1,0 +1,10 @@
+# Optional components (v0.10.18). The launcher installs these after the core requirements; if the
+# install fails (for example no internet), NodeWatch still starts and retries on the next start.
+# Optional SNMPv3 read-only connector (app/integrations/connectors/snmp, v0.10.17). Imported lazily:
+# NodeWatch starts without them and the connector then reports "SNMP support component missing".
+# Wheels checked for win_amd64 / CPython 3.12 (--only-binary): pysnmp and pyasn1 are py3-none-any,
+# cryptography is cp311-abi3-win_amd64; its cffi (cp312-win_amd64) and pycparser (py3-none-any)
+# dependencies come along automatically. cryptography provides SNMPv3 AES privacy.
+pysnmp==7.1.29
+pyasn1==0.6.4
+cryptography==50.0.1

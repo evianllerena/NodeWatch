@@ -1,0 +1,36 @@
+NodeWatch v0.8.10 Startup Reliability QA
+Build: 2026-10-07-v0.8.10-startup-reliability
+
+PASS Python compileall for the application runtime.
+PASS JavaScript syntax for every shipped module.
+PASS live loopback Uvicorn startup under Python 3.13 in the build environment.
+PASS homepage returns HTTP 200.
+PASS /api/status reports exact v0.8.10 build identity.
+PASS launcher nonce handshake is absent for a wrong nonce and present for the correct nonce.
+PASS Swagger/ReDoc/OpenAPI remain disabled.
+PASS unsafe API POST without the per-launch write token returns 403.
+PASS cross-site unsafe API request returns 403 even with the write token.
+PASS same-origin protected POST succeeds with the correct write token.
+PASS TrustedHost rejects an unapproved Host header.
+PASS Windows x86-64 native launcher cross-compiles as a GUI executable.
+PASS launcher integrity manifest contains 78 protected runtime files and every file hash verifies.
+PASS SHA-256 of integrity.json matches the digest embedded in native_launcher.go.
+PASS frontend version/build identity matches the backend version/build identity.
+
+Startup-reliability changes verified in source/build:
+- backend uses the version-scoped private runtime python.exe with CREATE_NO_WINDOW rather than pythonw.exe;
+- stdout/stderr are redirected to NodeWatch\\logs\\backend-launcher.log;
+- PYTHONUNBUFFERED and Python faulthandler are enabled for startup diagnostics;
+- Python 3.12 is preferred first on Windows because that interpreter family previously ran NodeWatch successfully on the target PC;
+- the fresh 256-bit nonce + exact version/build is authoritative for launcher/backend handoff;
+- Windows process-image lookup remains diagnostic and can no longer reject an otherwise nonce-verified backend;
+- native-launcher.log records backend exit status and points to backend-launcher.log when startup fails.
+
+Build-environment limitation:
+The exact pinned Windows runtime wheel set cannot be executed inside this Linux build environment. The shipped Windows launcher was cross-compiled and the Python application was live-smoke-tested in the available environment. The first Windows launch remains the final platform-specific validation.
+
+Supply-chain limitation:
+The exact dependencies are pinned and source builds are blocked, but the first-run wheel set is not yet vendored. The stronger future release model remains an offline wheelhouse installed with --no-index --require-hashes.
+
+Windows signing limitation:
+NodeWatch.exe is unsigned in this package because no trusted BWN signing identity is present in the build environment. SmartScreen may continue to show Unknown publisher until the final executable is signed with the real BWN identity.
