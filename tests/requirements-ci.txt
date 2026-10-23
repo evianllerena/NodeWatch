@@ -1,6 +1,7 @@
 # Exact versions of the Python packages shipped in v0.10.42, read from the bundled
 # runtime/site-packages/*.dist-info folders. Used only by CI so the tests run against the same
-# library versions the app ships with. opentelemetry-api is shipped but never imported, so it is left out.
+# library versions the app ships with. opentelemetry-api is required by FastAPI 0.142.2 (its METADATA
+# declares Requires-Dist: opentelemetry-api>=1.44.0, and fastapi/applications.py imports fastapi.telemetry).
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.15.1
@@ -12,6 +13,7 @@ h11==0.16.0
 idna==3.20
 jinja2==3.1.6
 markupsafe==3.0.4
+opentelemetry-api==1.45.1
 pyasn1==0.6.4
 pycparser==3.11
 pydantic==2.14.1
