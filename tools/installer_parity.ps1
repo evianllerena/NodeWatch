@@ -8,7 +8,7 @@ if ($Report) {
   Get-ChildItem $Report -File | Where-Object { $_.Name -match $Pattern } | ForEach-Object {
     $t = (Get-Content $_.FullName -Raw)
     if (-not $t) { $t = "(empty)" }
-    $t = $t -replace '%','%25' -replace "`r",'' -replace "`n",'%0A'
+    $t = $t -replace '::', ': :' -replace '%','%25' -replace "`r",'' -replace "`n",'%0A'
     for ($i = 0; $i -lt [Math]::Min($t.Length, 7000); $i += 3500) {
       Write-Output "::notice title=$($_.Name) [$($i / 3500 + 1)]::$($t.Substring($i, [Math]::Min(3500, $t.Length - $i)))"
     }
@@ -45,7 +45,7 @@ function Snap-Reg {
     Get-ChildItem $r -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
       $key = $_
       $rows += "KEY $($key.Name)"
-      foreach ($v in $key.GetValueNames()) { $rows += "VAL $($key.Name) :: $v = $($key.GetValue($v))" }
+      foreach ($v in $key.GetValueNames()) { $rows += "VAL $($key.Name) [$v] = $($key.GetValue($v))" }
     }
   }
   return $rows
