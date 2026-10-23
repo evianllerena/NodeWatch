@@ -93,6 +93,15 @@ def _startup_work() -> None:
     log.info("Background start-up finished in %d ms (%s)", round((time.monotonic() - started) * 1000), "; ".join(steps))
 
 
+def stop_soc_collector() -> None:
+    """Stop the SOC collector thread if a page started it (it starts on first use, not at start-up)."""
+    import sys
+
+    soc = sys.modules.get("app.services.soc.service")  # never imported just to stop it
+    if soc is not None:
+        soc.COLLECTOR.stop()
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # v0.10.23: routes are plain functions run in AnyIO's worker threads (40 by default). Pages make
@@ -111,6 +120,7 @@ async def lifespan(_: FastAPI):
         stop_alerting_monitor()
         stop_siem_forwarder()
         stop_backup_scheduler()
+        stop_soc_collector()
 
 
 # NodeWatch is a loopback desktop application, not a general-purpose API server.

@@ -312,27 +312,6 @@ def status(request: Request, test: bool = Query(False), probe: bool = Query(Fals
         "configuration_errors": validation,
         "tls_verification_disabled": not client.settings.verify_tls,
     }
-    if probe:
-        # Fresh-launch handshake (v0.10.22): answer the launcher's random challenge with a
-        # proof keyed by the per-launch nonce and bound to this backend's own port. The nonce
-        # is never accepted from, or sent to, the network (see core/security.py).
-        own_port = result.get("port")
-        launch_challenge = request.query_params.get("launch_challenge")
-        if launch_challenge and own_port:
-            proof = launch_proof(os.environ.get("NODEWATCH_LAUNCH_NONCE") or "", launch_challenge, own_port)
-            if proof:
-                result["launch_proof"] = proof
-        # Reuse handshake: prove possession of the per-install key for this port.
-        challenge = request.query_params.get("challenge")
-        if challenge and own_port:
-            proof = identity_proof(STATE_ROOT, challenge, own_port)
-            if proof:
-                result["identity_proof"] = proof
-        # The probe is readable without the request token, so it carries no Mist data.
-        for key in ("api_host", "configuration_errors", "org_scope"):
-            result.pop(key, None)
-        return result
-
     # Not on the token-free probe: it reads connector settings and the Splunk configuration.
     result["tls_verification_off"] = _tls_verification_off(client)
     # v0.10.24: NodeWatch is usable with any connected source, not only Mist. ``configured`` keeps

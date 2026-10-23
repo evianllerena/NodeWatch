@@ -35,7 +35,7 @@ class EventStore:
         self._loaded = not persist
         self._dirty = False
         self._saved_at = 0.0
-        self.version = 0  # bumped whenever detections are added (page caches key on it)
+        self.version = 0  # bumped whenever detections are added or updated (page caches key on it)
 
     # ---- persistence ------------------------------------------------------------------------------
     def _path(self) -> Path:
@@ -84,19 +84,23 @@ class EventStore:
         with self._lock:
             self._load()
             newest = self._cursor.get(source, 0.0)
+            changed = 0
             for e in events:
                 key = str(e.get("key") or "")
                 if not key:
                     continue
-                if key not in self._events:
+                old = self._events.get(key)
+                if old is None:
                     new += 1
+                if old != e:
+                    changed += 1  # new, or an update to a known detection (count, last seen, state)
                 self._events[key] = e
                 newest = max(newest, float(e.get("timestamp") or 0))
             if newest:
                 self._cursor[source] = newest
             self._prune()
-            self._dirty = self._dirty or bool(new)
-            if new:
+            self._dirty = self._dirty or bool(changed)
+            if changed:
                 self.version += 1
         return new
 

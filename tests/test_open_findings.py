@@ -169,18 +169,32 @@ class LowFindings(unittest.TestCase):
 
 
 class Cleanup(unittest.TestCase):
-    @open_finding
     def test_no_unreachable_probe_block_in_status(self):
         tree = ast.parse(_src("modules/system/router.py"))
         fn = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "status")
         probe_ifs = [n for n in ast.walk(fn) if isinstance(n, ast.If) and isinstance(n.test, ast.Name) and n.test.id == "probe"]
         self.assertEqual(len(probe_ifs), 1)
 
-    @open_finding
     def test_subscriberless_event_bus_removed(self):
         self.assertFalse((APP / "integrations" / "event_bus.py").exists())
 
-    @open_finding
+    def test_soc_store_marks_updated_detections(self):
+        """Fixed in Phase 1: an update to a known detection (e.g. a higher count) is saved and bumps the version."""
+        import time as _t
+        from app.services.soc.store import EventStore
+
+        st = EventStore(persist=False)
+        e = {"key": "k1", "timestamp": _t.time(), "count": 1}
+        self.assertEqual(st.add("src", [e]), 1)
+        v, st._dirty = st.version, False
+        self.assertEqual(st.add("src", [dict(e, count=5)]), 0)
+        self.assertTrue(st._dirty)
+        self.assertEqual(st.version, v + 1)
+        st._dirty = False
+        st.add("src", [dict(e, count=5)])  # identical: nothing to save
+        self.assertFalse(st._dirty)
+        self.assertEqual(st.version, v + 1)
+
     def test_soc_collector_stopped_on_shutdown(self):
         lifespan = _src("main.py").split("async def lifespan", 1)[1].split("\napp = ", 1)[0]
         self.assertRegex(lifespan, r"soc|collector")

@@ -7,7 +7,6 @@ import json
 
 from app.integrations.base import IntegrationError, ProviderAdapter, registry
 from app.integrations.cache import CACHE
-from app.integrations.event_bus import EVENT_BUS, NodeWatchEvent
 from app.integrations.resilience import execute_resilient
 
 ALLOWED_OPERATORS = {"eq", "neq", "in", "contains", "prefix", "exists", "gt", "gte", "lt", "lte"}
@@ -163,13 +162,6 @@ class QueryEngine:
             raise IntegrationError("Provider returned an unsupported query result", code="INVALID_PROVIDER_RESPONSE")
         cache_tier, cache_ttl = provider.cache_policy(query.capability)
         CACHE.put(cache_key, normalized, tier=cache_tier, ttl_seconds=cache_ttl)
-        EVENT_BUS.publish(
-            NodeWatchEvent(
-                "provider.query.completed",
-                {"capability": query.capability, "count": normalized.retrieved_count},
-                provider.provider_id,
-            )
-        )
         return normalized
 
 
