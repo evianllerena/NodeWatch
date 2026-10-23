@@ -43,9 +43,8 @@ if TARGET == "bundle":
 
 DATA_ROOT = _DATA
 
-# Phase 2 builds ship app/core, app/integrations and app/services as compiled modules with no source.
-# Tests that read source text run on the source tree in CI and are skipped there.
-COMPILED_PACKAGES = ("core", "integrations", "services")
+# Phase 2 builds ship the app package as one compiled module (app.<suffix>) with no source except
+# app/launcher.py. Tests that read source text run on the source tree in CI and are skipped there.
 COMPILED = TARGET == "bundle" and not (ROOT / "app" / "core" / "__init__.py").exists()
 
 

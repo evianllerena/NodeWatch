@@ -88,20 +88,21 @@ def repo_app_files() -> dict[str, bytes]:
 WINDOWS_ONLY = ("app/core/app_window.py", "branding/startup.bmp")
 
 
-# Phase 2 (Tier 1): packages shipped as compiled modules (tools/compile_packages.py) instead of source.
-COMPILED_PACKAGES = ("core", "integrations", "services")
+# Phase 2 (Tier 1): the app package ships as one compiled module (tools/compile_packages.py) instead of source.
+# app/launcher.py stays source: the launchers start the backend with "python -m app.launcher", which needs it.
+KEEP_SOURCE = ("app/launcher.py",)
 
 
 def load_compiled(folder: Path | None, build: str) -> dict[str, bytes] | None:
-    """{file name: bytes} of the compiled packages, checked to be built from this build id's source."""
+    """{file name: bytes} of the compiled app package, checked to be built from this build id's source."""
     if folder is None:
         return None
     stamp = (folder / "BUILD.txt").read_text("utf-8").strip()
     if stamp != build:
         raise SystemExit(f"compiled packages are for build {stamp!r}, not {build!r}")
     files = {p.name: p.read_bytes() for p in folder.iterdir() if p.suffix in {".pyd", ".so"}}
-    if sorted(n.split(".")[0] for n in files) != sorted(COMPILED_PACKAGES):
-        raise SystemExit(f"expected one compiled module per package {COMPILED_PACKAGES}, found {sorted(files)}")
+    if [n.split(".")[0] for n in files] != ["app"]:
+        raise SystemExit(f"expected one compiled module named app, found {sorted(files)}")
     return files
 
 
@@ -141,13 +142,12 @@ def new_internal_files(current: dict[str, bytes], build: str, platform: str,
                 report.append(f"removed  {rel} (Windows only)")
     if compiled is not None:
         # The packages' source is replaced by their compiled modules (stamped with the build id before compiling).
-        gone = [rel for rel in new if rel.split("/")[0] == "app" and len(rel.split("/")) > 2
-                and rel.split("/")[1] in COMPILED_PACKAGES]
+        gone = [rel for rel in new if rel.startswith("app/") and rel.endswith(".py") and rel not in KEEP_SOURCE]
         for rel in gone:
             del new[rel]
         for name, data in compiled.items():
-            new[f"app/{name}"] = data
-        report.append(f"compiled: {len(gone)} source files of app/{{{','.join(COMPILED_PACKAGES)}}} replaced by {sorted(compiled)}")
+            new[name] = data  # beside the app folder: _internal/app.<suffix>
+        report.append(f"compiled: {len(gone)} app source files replaced by {sorted(compiled)} (kept: {', '.join(KEEP_SOURCE)})")
     version, placeholder = repo_version()
     if f"const FRONTEND_VERSION = '{version}';" not in new["app/static/core.js"].decode("utf-8"):
         raise SystemExit(f"app/static/core.js FRONTEND_VERSION is not {version} (set both with the version)")
@@ -356,8 +356,8 @@ def build_macos(app: Path, build: str, compiled: dict[str, bytes] | None = None)
     new, report = new_internal_files(current, build, "macos", compiled)
     for rel in set(current) - set(new):
         (internal / rel).unlink()
-    for top in COMPILED_PACKAGES if compiled is not None else ():
-        for d in sorted((internal / "app" / top).rglob("*"), key=lambda x: len(x.parts), reverse=True) + [internal / "app" / top]:
+    if compiled is not None:
+        for d in sorted((internal / "app").rglob("*"), key=lambda x: len(x.parts), reverse=True):
             if d.is_dir() and not any(d.iterdir()):
                 d.rmdir()
     shutil.rmtree(internal / "docs", ignore_errors=True)

@@ -60,15 +60,14 @@ class BundleIntegrity(unittest.TestCase):
         self.assertEqual(found, [])
 
     def test_compiled_packages_ship_no_source(self):
-        """Phase 2: when app/core, app/integrations and app/services are compiled, none of their .py/.pyc ships."""
-        from tests.support import COMPILED, COMPILED_PACKAGES
+        """Phase 2: a compiled build ships no app source except app/launcher.py, and one compiled app module."""
+        from tests.support import COMPILED
 
         if not COMPILED:
             self.skipTest("not a compiled build")
-        left = [p.relative_to(ROOT).as_posix() for top in COMPILED_PACKAGES for p in (ROOT / "app" / top).rglob("*")
-                if p.suffix in {".py", ".pyc"}] if (ROOT / "app").exists() else []
-        self.assertEqual(left, [])
-        self.assertEqual(len([p for top in COMPILED_PACKAGES for p in (ROOT / "app").glob(f"{top}.*") if p.suffix in {".pyd", ".so"}]), 3)
+        left = [p.relative_to(ROOT).as_posix() for p in (ROOT / "app").rglob("*") if p.suffix in {".py", ".pyc"}]
+        self.assertEqual(left, ["app/launcher.py"])
+        self.assertEqual(len([p for p in ROOT.glob("app.*") if p.suffix in {".pyd", ".so"}]), 1)
 
     def test_no_wrong_os_files_shipped(self):
         """v0.10.47: the macOS app carries no Windows-only files (report: Windows files in the macOS app)."""

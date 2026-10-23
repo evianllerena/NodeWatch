@@ -54,6 +54,17 @@ jobs:
           ls -l compiled || true
           echo "::notice title=compiled ${{ matrix.os }}::$(ls -l compiled 2>/dev/null | sed ':a;N;$!ba;s/\n/%0A/g')"
           [ -f compile.log ] && echo "::notice title=compile log tail ${{ matrix.os }}::$(tail -n 40 compile.log | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' | head -c 3500)"
+      - name: The compiled module imports on its own (with the app's packages installed)
+        shell: bash
+        run: |
+          python -m pip install --no-deps -q -r tests/requirements-ci.txt
+          set -o pipefail
+          mkdir -p check/app && cp compiled/app.* check/ && cp app/launcher.py check/app/
+          (cd app && find . -type f ! -name '*.py' ! -path '*__pycache__*' -exec cp --parents {} ../check/app/ \;)
+          cd check && python -X faulthandler -c "import app, app.core.version as v, app.integrations.connectors.sdk as s, app.services.triage.registry, app.main; print('ok', v.APP_BUILD, app.__file__, len(s.discover()))" 2>&1 | tee ../import.txt
+          status=$?
+          echo "::notice title=import ${{ matrix.os }}::$(sed ':a;N;$!ba;s/\n/%0A/g' ../import.txt | tail -c 3000)"
+          exit $status
       - uses: actions/upload-artifact@v4
         with:
           name: compiled-${{ runner.os }}
@@ -92,6 +103,7 @@ jobs:
         with:
           name: windows-tree
           path: tree/
+          include-hidden-files: true
 
   windows-test:
     needs: [build-id, windows]
@@ -143,7 +155,9 @@ jobs:
         run: |
           rm -rf "$RUNNER_TEMP/check" && ditto -x -k dist/NodeWatch.zip "$RUNNER_TEMP/check"
           I="$RUNNER_TEMP/check/NodeWatch.app/Contents/Resources/_internal"
-          "$I/runtime-macos/python-arm64/bin/python3.12" -B tests/run.py -v --target bundle --root "$I" --min-tests 60 --report test-result-macos.json
+          "$I/runtime-macos/python-arm64/bin/python3.12" -X faulthandler -B tests/run.py -v --target bundle --root "$I" --min-tests 60 --report test-result-macos.json 2>&1 | tee suite.log; status=${PIPESTATUS[0]}
+          [ "$status" = 0 ] || echo "::error title=macOS suite exit $status::$(tail -n 40 suite.log | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' | head -c 3500)"
+          exit $status
       - name: Report test results
         if: always()
         run: python3 tests/tools/annotate.py test-result-macos.json
