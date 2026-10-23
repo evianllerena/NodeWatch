@@ -159,15 +159,16 @@ func main() {
 	}
 	l.logf("runtime integrity validation passed")
 
-	if err := l.checkInstallFolderACL(); err != nil {
-		l.logf("install folder permission check failed: %v", err)
-		messageBox("NodeWatch", err.Error())
+	// v0.10.22: never run from a folder other users can change; offer the one-click install instead.
+	if problems := l.installFolderProblems(); len(problems) > 0 {
+		l.logf("install folder is writable by other users: %s", strings.Join(problems, ", "))
+		l.offerProfileInstall(problems)
 		return
 	}
 
 	if port, ok := l.findExistingExactBackend(); ok {
 		l.logf("opened existing exact backend on port %d", port)
-		openBrowser(fmt.Sprintf("http://127.0.0.1:%d/", port))
+		l.openApp(fmt.Sprintf("http://127.0.0.1:%d/", port))
 		return
 	}
 
@@ -238,7 +239,7 @@ func main() {
 	l.logf("verified backend v%s build=%s pid=%d on port %d with launcher handshake", status.Version, status.Build, status.PID, port)
 
 	closeSplash()
-	openBrowser(fmt.Sprintf("http://127.0.0.1:%d/", port))
+	l.openApp(fmt.Sprintf("http://127.0.0.1:%d/", port))
 }
 
 func newLauncher() (*launcher, error) {
@@ -1428,32 +1429,6 @@ func writableByOthers(dir string) ([]string, error) {
 	return found, nil
 }
 
-// checkInstallFolderACL refuses to start from a folder other users may change (for
-// example a new folder under C:\, which by default lets every authenticated user modify
-// it). The integrity check cannot protect files another account can swap after it ran.
-// NODEWATCH_ALLOW_SHARED_INSTALL=1 starts anyway (logged), for lab PCs with one user.
-func (l *launcher) checkInstallFolderACL() error {
-	var problems []string
-	for _, dir := range []string{l.exeDir, l.internalDir} {
-		found, err := writableByOthers(dir)
-		if err != nil {
-			l.logf("install folder permission check skipped for %s: %v", dir, err)
-			continue
-		}
-		for _, f := range found {
-			problems = append(problems, dir+": "+f)
-		}
-	}
-	if len(problems) == 0 {
-		return nil
-	}
-	if os.Getenv("NODEWATCH_ALLOW_SHARED_INSTALL") == "1" {
-		l.logf("WARNING: install folder is writable by other users (%s); starting because NODEWATCH_ALLOW_SHARED_INSTALL=1", strings.Join(problems, "; "))
-		return nil
-	}
-	return fmt.Errorf("NodeWatch is installed in a folder that other users of this PC can change:\n\n%s\n\nMove NodeWatch to a folder only you and administrators can write to (for example under C:\\Program Files, or inside your user profile) and start it again.", strings.Join(problems, "\n"))
-}
-
 func queryProcessPath(pid int) (string, error) {
 	h, _, e := procOpenProcess.Call(processQueryInfo, 0, uintptr(pid))
 	if h == 0 {
@@ -1780,4 +1755,116 @@ func (l *launcher) openApp(url string) {
 		return
 	}
 	l.logf("opened NodeWatch app window with %s", exe)
+}
+
+// installFolderMessage says, in plain words, who can change the folder NodeWatch was started from.
+func installFolderMessage(problems []string) string {
+	return "NodeWatch cannot run from this folder because other people on this PC can change its files:\n\n" +
+		strings.Join(problems, "\n")
+}
+
+// offerProfileInstall runs when NodeWatch was started from a folder other users can change (v0.10.22): it offers
+// to install a verified copy in the user's own folder and starts that copy. An identical copy already installed
+// there is simply started.
+func (l *launcher) offerProfileInstall(problems []string) {
+	dir := profileInstallDir()
+	installed := filepath.Join(dir, "NodeWatch.exe")
+	if samePath(dir, l.exeDir) {
+		messageBox("NodeWatch", installFolderMessage(problems)+"\n\nAsk your administrator to correct the permissions of "+dir+", then start NodeWatch again.")
+		return
+	}
+	if l.installedIsIdentical(dir) {
+		l.logf("identical NodeWatch already installed in %s; starting it", dir)
+		if err := startDetached(installed, dir); err != nil {
+			messageBox("NodeWatch", fmt.Sprintf("NodeWatch is installed in %s but could not be started: %v", dir, err))
+		}
+		return
+	}
+	question := installFolderMessage(problems) + "\n\nInstall NodeWatch in your own user folder and start it now?\n\n" + dir
+	if !askYesNo("Install NodeWatch", question) {
+		messageBox("NodeWatch", installFolderMessage(problems)+"\n\nMove NodeWatch to a folder only you can change (for example "+dir+"). Start NodeWatch.exe from that folder.")
+		return
+	}
+	if err := l.installTo(dir); err != nil {
+		l.logf("profile install failed: %v", err)
+		messageBox("NodeWatch", "NodeWatch could not be installed in "+dir+":\n\n"+err.Error()+"\n\nSee:\n"+l.logPath)
+		return
+	}
+	l.logf("installed NodeWatch v%s in %s", appVersion, dir)
+	if err := startDetached(installed, dir); err != nil {
+		messageBox("NodeWatch", fmt.Sprintf("NodeWatch was installed in %s but could not be started: %v", dir, err))
+		return
+	}
+	messageBox("NodeWatch", "NodeWatch was installed in:\n\n"+dir+"\n\nNext time you can start it from there, or from this copy (it will open the installed one).")
+}
+
+// installedIsIdentical reports whether dir holds this exact release: same launcher and same integrity manifest.
+func (l *launcher) installedIsIdentical(dir string) bool {
+	self, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	sameExe, err := sameFile(self, filepath.Join(dir, "NodeWatch.exe"))
+	if err != nil || !sameExe {
+		return false
+	}
+	sameManifest, err := sameFile(filepath.Join(l.internalDir, "integrity.json"), filepath.Join(dir, "_internal", "integrity.json"))
+	return err == nil && sameManifest
+}
+
+// installTo copies the launcher, the manifest and every file it lists into dir, checking each copy against the
+// manifest, then swaps the new folder into place. The previous install is removed when that succeeds.
+func (l *launcher) installTo(dir string) error {
+	self, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	suffix, err := randomHex(4)
+	if err != nil {
+		return err
+	}
+	staging := dir + ".new-" + suffix
+	_ = os.RemoveAll(staging)
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.RemoveAll(staging)
+		}
+	}()
+	if err := copyVerified(self, filepath.Join(staging, "NodeWatch.exe")); err != nil {
+		return fmt.Errorf("copy application files: %w", err)
+	}
+	if err := copyVerified(filepath.Join(l.internalDir, "integrity.json"), filepath.Join(staging, "_internal", "integrity.json")); err != nil {
+		return fmt.Errorf("copy application files: %w", err)
+	}
+	for rel, expected := range l.manifest.Files {
+		target := filepath.Join(staging, "_internal", filepath.FromSlash(rel))
+		if err := copyVerified(filepath.Join(l.internalDir, filepath.FromSlash(rel)), target); err != nil {
+			return fmt.Errorf("copy application files: %w", err)
+		}
+		actual, err := hashFile(target)
+		if err != nil || !strings.EqualFold(actual, expected) {
+			return fmt.Errorf("copied file %s does not match the release", rel)
+		}
+	}
+	old := ""
+	if _, err := os.Stat(dir); err == nil {
+		old = dir + ".old-" + suffix
+		if err := os.Rename(dir, old); err != nil {
+			return err
+		}
+	}
+	if err := os.Rename(staging, dir); err != nil {
+		if old != "" {
+			_ = os.Rename(old, dir)
+		}
+		return err
+	}
+	cleanup = false
+	if old != "" {
+		if err := os.RemoveAll(old); err != nil {
+			l.logf("previous install kept at %s (could not remove: %v)", old, err)
+		}
+	}
+	return nil
 }
