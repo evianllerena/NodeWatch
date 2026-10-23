@@ -32,4 +32,4 @@ jobs:
       - name: Report (part 3)
         if: always()
         shell: pwsh
-        run: ./tools/installer_parity.ps1 -Report parity -Pattern '^5'
+        run: ./tools/installer_parity.ps1 -Report parity -Pattern '^[5-6]'

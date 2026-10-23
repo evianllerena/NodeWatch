@@ -158,3 +158,15 @@ Write-Diff $f5 (Snap-Files) "5-wizard-files.txt"
 Write-Diff $r5 (Snap-Reg) "5-wizard-registry.txt"
 Get-Process | Where-Object { $_.Name -match "NodeWatch|python|nwhost|msedge" } | Stop-Process -Force -ErrorAction SilentlyContinue
 if (-not $p.HasExited) { $p | Stop-Process -Force }
+
+# 6. Silent uninstall with the installed uninstaller (data folder kept in silent mode)
+$f6 = Snap-Files; $r6 = Snap-Reg
+$uninst = Join-Path $env:LOCALAPPDATA "Programs\NodeWatch\Uninstall NodeWatch.exe"
+if (Test-Path $uninst) {
+  $p = Start-Process -FilePath $uninst -ArgumentList "/uninstall", "/S" -PassThru -Wait
+  $code = $p.ExitCode
+  Start-Sleep -Seconds 8
+} else { $code = "no uninstaller found" }
+"silent uninstall exit code: $code" | Set-Content (Join-Path $Out "6-uninstall-exit.txt")
+Write-Diff $f6 (Snap-Files) "6-uninstall-files.txt"
+Write-Diff $r6 (Snap-Reg) "6-uninstall-registry.txt"

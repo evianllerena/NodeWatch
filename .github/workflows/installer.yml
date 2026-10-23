@@ -1,0 +1,104 @@
+name: installer
+
+# The Windows installer built from source (release/windows-installer) against the shipped v0.10.42 installer:
+# both are recorded on clean Windows machines with tools/installer_parity.ps1 and compared with
+# tools/compare_installer_records.py. Publishes nothing; the release workflow switches to the new installer
+# once this passes.
+on:
+  push:
+    branches: [main]
+    paths: [release/**, tools/build_release.py, tools/installer_parity.ps1, tools/compare_installer_records.py, .github/workflows/installer.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.id.outputs.id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.7"
+          cache: false
+      - id: id
+        run: echo "id=$(python3 tools/build_release.py build-id)" >> "$GITHUB_OUTPUT"
+      - name: Icons and version details (launcher and installer)
+        run: |
+          v=$(python3 tools/build_release.py version)
+          for d in windows-launcher windows-installer; do
+            desc="NodeWatch"; [ "$d" = windows-installer ] && desc="NodeWatch Setup"
+            (cd release/$d && go run github.com/tc-hib/go-winres@v0.3.3 simply --arch amd64 --icon ../resources/icon-256.png --manifest gui \
+              --file-version "$v.0" --product-version "$v.0" --file-description "$desc" --product-name "NodeWatch" \
+              --copyright "BWN" --original-filename "NodeWatch.exe" --out rsrc)
+          done
+      - name: Build the installer from source
+        run: |
+          mkdir -p dist
+          python3 tools/build_release.py windows-installer --installer shipped/v0.10.42/NodeWatch-windows-installer.exe \
+            --out dist/NodeWatch.exe --build ${{ steps.id.outputs.id }} | tail -n 3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: dist/
+
+  record:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        which: [shipped, new]
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer
+          path: dist
+      - name: Record
+        shell: pwsh
+        run: |
+          $exe = if ("${{ matrix.which }}" -eq "shipped") { "shipped\v0.10.42\NodeWatch-windows-installer.exe" } else { "dist\NodeWatch.exe" }
+          ./tools/installer_parity.ps1 -Installer $exe -Out record
+      - name: The installed launcher starts and answers as this build (new installer only)
+        if: matrix.which == 'new'
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\NodeWatch.exe -ArgumentList "/S" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "silent install exit $($p.ExitCode)" }
+          ./tools/launcher_parity.ps1 -Root (Join-Path $env:LOCALAPPDATA "Programs") -Seconds 120 -ExpectBuild "${{ needs.build.outputs.id }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: record-${{ matrix.which }}
+          path: record/
+
+  compare:
+    needs: record
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: record-shipped
+          path: shipped-record
+      - uses: actions/download-artifact@v4
+        with:
+          name: record-new
+          path: new-record
+      - name: Compare
+        run: |
+          set +e
+          python3 tools/compare_installer_records.py shipped-record new-record > compare.txt 2>&1
+          status=$?
+          cat compare.txt
+          python3 -c "
+          t = open('compare.txt').read().replace('%', '%25').replace('\n', '%0A')
+          for i in range(0, min(len(t), 30000), 3400):
+              print(f'::notice title=installer comparison {i // 3400 + 1}::' + t[i:i + 3400])
+          "
+          exit $status

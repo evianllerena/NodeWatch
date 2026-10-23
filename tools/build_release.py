@@ -39,6 +39,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import zipfile
 import zlib
 from pathlib import Path
 
@@ -294,15 +295,47 @@ def write_payload(entries, target_size: int) -> bytes:
     return bytes(body + cds + eocd)
 
 
-def build_windows_tree(installer: Path, out_dir: Path, build: str, compiled: dict[str, bytes] | None) -> None:
-    """The installed folder (NodeWatch/NodeWatch.exe and NodeWatch/_internal) written out, without an installer:
-    used while a compiled payload no longer fits the shipped installer's fixed payload slot."""
+def windows_files(installer: Path, build: str, compiled: dict[str, bytes] | None) -> tuple[dict[str, bytes], bytes, list[str]]:
+    """This release's _internal files, its launcher, and the change report (from the shipped installer's payload)."""
     exe = installer.read_bytes()
     _, _, _, entries = read_payload(exe)
     prefix = "NodeWatch/_internal/"
     current = {e["name"][len(prefix):]: inflate(e) for e in entries if e["name"].startswith(prefix) and not e["name"].endswith("/")}
     new, report = new_internal_files(current, build, "windows", compiled)
-    launcher = compile_windows_launcher(sha256(new["integrity.json"]), build)
+    return new, compile_windows_launcher(sha256(new["integrity.json"]), build), report
+
+
+def build_windows_installer(installer: Path, out: Path, build: str, compiled: dict[str, bytes] | None) -> None:
+    """NodeWatch.exe built from source (release/windows-installer, v0.10.49): the wizard, silent install and
+    uninstaller recorded from the shipped v0.10.42 installer, with this release's folder embedded. Unlike the shipped
+    installer it has no fixed payload size, so a compiled build fits."""
+    new, launcher, report = windows_files(installer, build, compiled)
+    version = repo_version()[0]
+    with tempfile.TemporaryDirectory() as tmp:
+        src = Path(tmp) / "setup"
+        shutil.copytree(REPO / "release" / "windows-installer", src, ignore=shutil.ignore_patterns("payload.zip"))
+        main = src / "main.go"
+        text, n = re.subn(r'^(\tappVersion\s*=\s*")[^"]*(")', rf"\g<1>{version}\g<2>", main.read_text("utf-8"), flags=re.M)
+        if n != 1:
+            raise SystemExit("constant appVersion not found exactly once in release/windows-installer/main.go")
+        main.write_text(text, "utf-8")
+        with zipfile.ZipFile(src / "payload.zip", "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+            z.writestr("NodeWatch/NodeWatch.exe", launcher)
+            for rel in sorted(new):
+                z.writestr(f"NodeWatch/_internal/{rel}", new[rel])
+        exe = Path(tmp) / "NodeWatch.exe"
+        env = dict(os.environ, GOOS="windows", GOARCH="amd64", CGO_ENABLED="0")
+        subprocess.run(["go", "build", "-trimpath", "-ldflags=-s -w -H windowsgui", "-o", str(exe), "."], cwd=src, env=env, check=True)
+        data = exe.read_bytes()
+    out.write_bytes(data)
+    print("\n".join(report))
+    print(f"installer built from source: version {version}, {len(new)} files, manifest {sha256(new['integrity.json'])}, "
+          f"build {build}, {len(data)} bytes, sha256 {sha256(data)}")
+
+
+def build_windows_tree(installer: Path, out_dir: Path, build: str, compiled: dict[str, bytes] | None) -> None:
+    """The installed folder (NodeWatch/NodeWatch.exe and NodeWatch/_internal) written out, without an installer."""
+    new, launcher, report = windows_files(installer, build, compiled)
     root = out_dir / "NodeWatch"
     for rel, data in new.items():
         path = root / "_internal" / rel
@@ -386,6 +419,11 @@ def main() -> int:
     w.add_argument("--out", type=Path, required=True)
     w.add_argument("--build", required=True)
     w.add_argument("--compiled", type=Path, help="folder from tools/compile_packages.py (Phase 2)")
+    i = sub.add_parser("windows-installer")
+    i.add_argument("--installer", type=Path, required=True, help="the shipped installer (source of the runtime files)")
+    i.add_argument("--out", type=Path, required=True)
+    i.add_argument("--build", required=True)
+    i.add_argument("--compiled", type=Path)
     t = sub.add_parser("windows-tree")
     t.add_argument("--installer", type=Path, required=True)
     t.add_argument("--out-dir", type=Path, required=True)
@@ -404,6 +442,8 @@ def main() -> int:
         print(repo_version()[0])
     elif args.cmd == "windows":
         build_windows(args.installer, args.out, args.build, load_compiled(args.compiled, args.build))
+    elif args.cmd == "windows-installer":
+        build_windows_installer(args.installer, args.out, args.build, load_compiled(args.compiled, args.build))
     elif args.cmd == "windows-tree":
         build_windows_tree(args.installer, args.out_dir, args.build, load_compiled(args.compiled, args.build))
     else:
