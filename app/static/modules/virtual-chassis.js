@@ -19,11 +19,7 @@ let healthTarget = null; // { site_id, device_id }
 let pendingDrill = null; // device_id to open once the drilled-to site's chassis list loads
 
 const $ = (s) => document.querySelector(s);
-const esc = (s) =>
-  String(s ?? '').replace(
-    /[&<>'"]/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c],
-  );
+const esc = nwEscapeHtml; // one shared escaper (core.js)
 const normalizeMac = (m) =>
   String(m || '')
     .toLowerCase()
@@ -31,18 +27,7 @@ const normalizeMac = (m) =>
 const roleLabel = (r) =>
   ({ master: 'Master', backup: 'Backup', linecard: 'Linecard', 'routing-engine': 'Routing Engine' })[r] || r;
 
-async function vcJSON(url, opts) {
-  const r = await fetch(url, opts || { cache: 'no-store' });
-  if (!r.ok) {
-    let t = await r.text();
-    try {
-      const j = JSON.parse(t);
-      t = j.detail || t;
-    } catch {}
-    throw new Error(typeof t === 'string' ? t : JSON.stringify(t));
-  }
-  return r.json();
-}
+const vcJSON = (url, opts) => nwFetchJSON(url, opts || { cache: 'no-store' }); // shared helper (core.js)
 
 async function initVC() {
   // v0.10.40: the all-sites overview (the slow read) starts together with the site list.

@@ -1,8 +1,4 @@
-const opsEsc = (v) =>
-  String(v ?? '').replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
-  );
+const opsEsc = nwEscapeHtml; // one shared escaper (core.js)
 window.MistTools.operations = (() => {
   let inited = false,
     site = '',
@@ -26,12 +22,7 @@ window.MistTools.operations = (() => {
     const view = site ? { site, device: device || '', port: device ? selected || '' : '' } : null;
     window.MistApp?.pushView?.(view, { replace });
   }
-  async function j(url, opt) {
-    const r = await fetch(url, opt);
-    if (!r.ok)
-      throw new Error((await r.json().catch(() => ({ detail: r.statusText }))).detail || r.statusText);
-    return r.json();
-  }
+  const j = (url, opt) => nwFetchJSON(url, opt); // shared helper (core.js)
   async function sites() {
     const rows = (await j('/api/v1/operations/sites')).sort((a, b) =>
       String(a.name || '').localeCompare(String(b.name || '')),

@@ -208,7 +208,7 @@ def load_secret(data_root: Path, target: str) -> str:
         save_secret(data_root, target, legacy_value)
         if _load_secret_exact(data_root, target) == legacy_value:
             _delete_secret_exact(data_root, legacy_target)
-    except Exception:
+    except Exception:  # noqa: BLE001 - migration failed: keep using the legacy secret (returned below)
         pass
     return legacy_value
 

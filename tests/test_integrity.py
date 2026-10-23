@@ -53,11 +53,9 @@ class BundleIntegrity(unittest.TestCase):
         self.assertEqual(extra, [])
 
     def test_no_dev_or_doc_files_shipped(self):
-        """Release hygiene gate (plan Phase 1/3). Expected to fail on v0.10.42, which ships docs/."""
+        """Release hygiene gate (v0.10.44: releases no longer ship docs/ or README.md). Run with python -B."""
         found = [p.relative_to(ROOT).as_posix() for p in ROOT.rglob("*")
-                 if p.name in {"__pycache__", "docs", ".git", "tests"} or p.suffix in {".map", ".pdb"}]
-        if found and "docs" in {f.split("/")[0] for f in found}:
-            self.skipTest("v0.10.42 ships docs/; becomes a hard gate once the Phase 1 bundle step lands")
+                 if p.name in {"__pycache__", "docs", ".git", "tests", "README.md"} or p.suffix in {".map", ".pdb"}]
         self.assertEqual(found, [])
 
 

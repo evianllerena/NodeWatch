@@ -222,11 +222,32 @@ class Cleanup(unittest.TestCase):
         lifespan = _src("main.py").split("async def lifespan", 1)[1].split("\napp = ", 1)[0]
         self.assertRegex(lifespan, r"soc|collector")
 
-    @open_finding
     def test_one_html_escape_helper(self):
-        copies = [p.name for p in (APP / "static").rglob("*.js")
-                  if re.search(r"(const|function) +(\w*Esc|esc|_esc|\w*[eE]scapeHtml|escHtml)\b", p.read_text("utf-8", "replace"))]
-        self.assertLessEqual(len(copies), 1, copies)
+        """Fixed in v0.10.44: pages alias core.js's nwEscapeHtml; only one escaping table exists."""
+        copies = [p.name for p in (APP / "static").rglob("*.js") if "'&': '&amp;'" in p.read_text("utf-8", "replace")]
+        self.assertEqual(copies, ["core.js"])
+
+    def test_one_fetch_helper(self):
+        """Fixed in v0.10.44: pages call core.js's nwFetchJSON instead of their own fetch-and-parse copies."""
+        own = [p.name for p in (APP / "static").rglob("*.js")
+               if re.search(r"async function (getJSON|postJSON|api|j|call|vcJSON)\(", p.read_text("utf-8", "replace"))
+               and p.name != "core.js"]
+        self.assertEqual(own, [])
+
+
+class SilentExcepts(unittest.TestCase):
+    def test_every_silent_broad_except_says_why(self):
+        """Fixed in v0.10.44: an `except Exception: pass` carries a reason on the except, the pass or the next line."""
+        bare = []
+        for p in APP.rglob("*.py"):
+            src = p.read_text("utf-8").splitlines()
+            for n in ast.walk(ast.parse("\n".join(src))):
+                if isinstance(n, ast.ExceptHandler) and len(n.body) == 1 and isinstance(n.body[0], ast.Pass):
+                    broad = n.type is None or (isinstance(n.type, ast.Name) and n.type.id in ("Exception", "BaseException"))
+                    near = src[n.lineno - 1:n.lineno + 1]
+                    if broad and not any("#" in x for x in near):
+                        bare.append(f"{p.relative_to(APP)}:{n.lineno}")
+        self.assertEqual(bare, [])
 
 
 # ------------------------------------------------------------------ new: discovery allowlists

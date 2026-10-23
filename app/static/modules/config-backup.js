@@ -1,11 +1,7 @@
 // NodeWatch v0.10.15 – Config Backups: configuration safety net for Mist.
 // Landing view answers: when was config last captured, what changed since, who changed it,
 // and can it be rolled back. Every Mist write goes through a preview + explicit confirmation.
-const backupEsc = (v) =>
-  String(v ?? '').replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
-  );
+const backupEsc = nwEscapeHtml; // one shared escaper (core.js)
 
 window.MistTools.configBackup = (() => {
   const API = '/api/v1/config-backup';
@@ -33,12 +29,7 @@ window.MistTools.configBackup = (() => {
   let initd = false;
   const $ = (sel) => document.querySelector(sel);
 
-  async function j(url, opts) {
-    const r = await fetch(url, opts);
-    const d = await r.json().catch(() => ({ detail: r.statusText }));
-    if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : r.statusText);
-    return d;
-  }
+  const j = (url, opts) => nwFetchJSON(url, opts); // shared helper (core.js)
   const post = (url, body) =>
     j(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const qs = (o) =>

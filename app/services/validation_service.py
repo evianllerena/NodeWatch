@@ -205,6 +205,6 @@ def list_reports(limit: int = 50) -> list[dict]:
                     "blockers": data.get("blockers"),
                 }
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - a damaged history line is skipped, the others are still listed
             pass
     return rows

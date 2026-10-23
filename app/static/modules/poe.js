@@ -1,8 +1,4 @@
-const poeEsc = (v) =>
-  String(v ?? '').replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
-  );
+const poeEsc = nwEscapeHtml; // one shared escaper (core.js)
 window.MistTools.poe = (() => {
   // Power Guard has two modes:
   //  * overview (no switch selected): org-wide PoE risk (no site) or site-wide (site selected),
@@ -30,12 +26,7 @@ window.MistTools.poe = (() => {
   const switchLists = new Map(); // site id → switches, so drilling back and forth is instant
   const rendered = { summary: '', risks: '', ports: '' };
   const $ = (sel) => document.querySelector(sel);
-  async function j(u) {
-    const r = await fetch(u);
-    if (!r.ok)
-      throw new Error((await r.json().catch(() => ({ detail: r.statusText }))).detail || r.statusText);
-    return r.json();
-  }
+  const j = (u) => nwFetchJSON(u); // shared helper (core.js)
   const selection = () => ({ site: $('#poeSite')?.value || '', dev: $('#poeSwitch')?.value || '' });
   const viewVisible = () =>
     document.visibilityState === 'visible' && !$('#view-poe')?.classList.contains('hidden');

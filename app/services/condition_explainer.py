@@ -1,19 +1,12 @@
 from __future__ import annotations
 
+from app.core.epoch import epoch_seconds
+
 from datetime import datetime, timezone
 from typing import Any
 
 
-def _epoch(value: Any) -> float:
-    if value in (None, ""):
-        return 0.0
-    try:
-        n = float(value)
-        if n > 1e12:
-            n /= 1000.0
-        return n
-    except (TypeError, ValueError):
-        return 0.0
+_epoch = epoch_seconds  # shared helper (app/core/epoch.py)
 
 
 def _when(value: Any) -> str:

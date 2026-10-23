@@ -105,10 +105,12 @@ def new_internal_files(current: dict[str, bytes], build: str) -> tuple[dict[str,
         elif current[rel] != data:
             report.append(f"changed  {rel}")
         new[rel] = data
-    for rel in sorted(current):  # shipped docs take the repo's text when it changed; dev-only docs are not shipped
-        if rel.startswith("docs/") and (REPO / rel).is_file() and (REPO / rel).read_bytes() != current[rel]:
-            new[rel] = (REPO / rel).read_bytes()
-            report.append(f"changed  {rel}")
+    # v0.10.44: no documentation in the installed app (internal notes stay in the repository).
+    dropped = [rel for rel in new if rel.startswith("docs/") or rel == "README.md"]
+    for rel in dropped:
+        del new[rel]
+    if dropped:
+        report.append(f"removed  docs/ and README.md ({len(dropped)} files)")
     version, placeholder = repo_version()
     if f"const FRONTEND_VERSION = '{version}';" not in new["app/static/core.js"].decode("utf-8"):
         raise SystemExit(f"app/static/core.js FRONTEND_VERSION is not {version} (set both with the version)")
@@ -269,7 +271,8 @@ def build_windows(installer: Path, out: Path, build: str) -> None:
         if e is launcher_entry:
             kept.append({**e, "data": launcher})
         elif rel is None or e["name"].endswith("/"):
-            kept.append(e)
+            if rel is None or not (rel.startswith("docs/") or rel == "docs/"):
+                kept.append(e)
         elif rel in new:
             kept.append(e if new[rel] == current[rel] else {**e, "data": new[rel]})
         # else: removed
@@ -296,6 +299,7 @@ def build_macos(app: Path, build: str) -> None:
     new, report = new_internal_files(current, build)
     for rel in set(current) - set(new):
         (internal / rel).unlink()
+    shutil.rmtree(internal / "docs", ignore_errors=True)
     for rel, data in new.items():
         if current.get(rel) != data:
             path = internal / rel

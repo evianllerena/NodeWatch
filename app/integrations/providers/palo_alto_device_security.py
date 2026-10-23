@@ -122,7 +122,7 @@ class PaloAltoDeviceSecurityProvider(ProviderAdapter):
             if error:
                 record["error"] = redact_text(error, self.credentials.get("client_secret", ""))[:500]
             append_jsonl_rotating(self._timing_log, record)
-        except Exception:
+        except Exception:  # noqa: BLE001 - diagnostics must never break the integration
             pass
 
     @staticmethod

@@ -1,5 +1,5 @@
-const FRONTEND_VERSION = '0.10.43';
-const FRONTEND_BUILD = '0.10.43-source';
+const FRONTEND_VERSION = '0.10.44';
+const FRONTEND_BUILD = '0.10.44-source';
 window.MistTools = window.MistTools || {};
 
 const NODEWATCH_WRITE_TOKEN = document.querySelector('meta[name="nodewatch-write-token"]')?.content || '';
@@ -107,10 +107,28 @@ let activeToolId = 'dashboard';
 let autoRefreshBusy = false;
 const AUTO_REFRESH_MS = 30000;
 
+// One fetch helper for every page (v0.10.44). JSON in and out; a refusal throws an Error whose message is the
+// server's own "detail" (FastAPI), else its "message" or "error", else "HTTP <status>". A body set as a string is sent as JSON.
+async function nwFetchJSON(url, opts = {}) {
+  const init = opts.body && !opts.headers ? { ...opts, headers: { 'Content-Type': 'application/json' } } : opts;
+  const r = await fetch(url, init);
+  const text = await r.text();
+  let body = {};
+  try {
+    body = text ? JSON.parse(text) : {};
+  } catch {
+    body = null;
+  }
+  if (!r.ok) {
+    const d = body?.detail;
+    const msg = typeof d === 'string' ? d : d != null ? JSON.stringify(d) : body?.message || body?.error;
+    throw new Error(msg || (body === null && text && text.length < 300 ? text : `HTTP ${r.status}`));
+  }
+  return body ?? {};
+}
+
 async function getJSON(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  return nwFetchJSON(url);
 }
 
 function setHeader(id) {

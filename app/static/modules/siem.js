@@ -1,17 +1,8 @@
-const siemEsc = (v) =>
-  String(v ?? '').replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
-  );
+const siemEsc = nwEscapeHtml; // one shared escaper (core.js)
 window.MistTools.siem = (() => {
   let initd = false,
     events = [];
-  async function j(url, options) {
-    const r = await fetch(url, options);
-    const d = await r.json().catch(() => ({ detail: r.statusText }));
-    if (!r.ok) throw new Error(d.detail || r.statusText);
-    return d;
-  }
+  const j = (url, options) => nwFetchJSON(url, options); // shared helper (core.js)
   function epoch(v) {
     let n = Number(v);
     if (v !== '' && v != null && Number.isFinite(n)) {

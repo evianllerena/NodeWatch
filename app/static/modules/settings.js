@@ -34,15 +34,7 @@ function paEls() {
   };
 }
 
-async function api(url, options = {}) {
-  const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
-  let body = {};
-  try {
-    body = await r.json();
-  } catch {}
-  if (!r.ok) throw new Error(body.detail || body.message || `HTTP ${r.status}`);
-  return body;
-}
+const api = (url, options = {}) => nwFetchJSON(url, { headers: { 'Content-Type': 'application/json' }, ...options }); // core.js
 
 function payload() {
   const e = settingsEls();

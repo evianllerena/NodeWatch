@@ -118,7 +118,7 @@ def _migrate_legacy_data_root(base: Path) -> Path:
     }
     try:
         write_private_text(target / MIGRATION_MARKER, json.dumps(marker, indent=2))
-    except Exception:
+    except Exception:  # noqa: BLE001 - without the marker the migration simply runs again next start
         pass
     return target
 

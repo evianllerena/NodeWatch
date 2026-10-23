@@ -82,11 +82,7 @@
   const LAYER_OF = { physical: 'physical', lag: 'physical', l2: 'physical', l3: 'l3', overlay: 'overlay', ha: 'physical' }; // HA pairs show with the cabling
 
   // ---------------------------------------------------------------- tiny helpers
-  const esc = (v) =>
-    String(v ?? '').replace(
-      /[&<>"']/g,
-      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
-    );
+  const esc = nwEscapeHtml; // one shared escaper (core.js)
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const store = {
@@ -208,20 +204,7 @@
     return pre && name.startsWith(pre) && name.length > pre.length + 2 ? name.slice(pre.length) : name;
   }
 
-  async function api(path, opts = {}) {
-    const res = await fetch(path, opts.body ? { ...opts, headers: { 'Content-Type': 'application/json' } } : opts);
-    if (!res.ok) {
-      let detail = `${res.status} ${res.statusText}`;
-      try {
-        const body = await res.json();
-        if (body?.detail) detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
-      } catch {
-        /* not JSON */
-      }
-      throw new Error(detail);
-    }
-    return res.json();
-  }
+  const api = (path, opts = {}) => nwFetchJSON(path, opts); // shared helper (core.js)
 
   // ---------------------------------------------------------------- glyphs (24×24 line icons)
   const GLYPH = {

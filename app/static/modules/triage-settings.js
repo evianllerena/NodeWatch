@@ -19,11 +19,7 @@
   let statusTimer = null;
   const values = {};
 
-  const esc = (v) =>
-    String(v ?? '').replace(
-      /[&<>'"]/g,
-      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c],
-    );
+  const esc = nwEscapeHtml; // one shared escaper (core.js)
   const ago = (ts) => {
     if (!ts) return 'never';
     const s = Math.max(0, Math.round(Date.now() / 1000 - ts));
@@ -34,18 +30,8 @@
   };
   const $ = (sel) => document.querySelector(sel);
 
-  async function call(url, options = {}) {
-    const r = await fetch(url, {
-      ...options,
-      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    });
-    let body = {};
-    try {
-      body = await r.json();
-    } catch {}
-    if (!r.ok) throw new Error(body.detail || `HTTP ${r.status}`);
-    return body;
-  }
+  const call = (url, options = {}) =>
+    nwFetchJSON(url, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } }); // core.js
 
   const manifest = (id) => (info?.backends || []).find((b) => b.backend_id === id);
 

@@ -928,8 +928,8 @@ def _daily_loop():
         wait = 1800
         try:
             run_scheduled_snapshot()
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001 - the scheduler keeps running; the failure is logged
+            logging.getLogger("nodewatch.backup").warning("Scheduled snapshot failed", exc_info=True)
 
 
 def start_backup_scheduler():
@@ -1930,7 +1930,7 @@ def restore_object(snapshot_id: str, key: str | None = None, device_id: str | No
         # Org-level objects (templates) feed many derived site views, so "" flushes every cached read
         # on purpose; the event buffer is kept (see MistClient.clear_cache_matching).
         client.clear_cache_matching(plan["site_id"] or "", plan["key"].split(":", 1)[-1])
-    except Exception:
+    except Exception:  # noqa: BLE001 - the change is written; a failed cache flush only means one stale read
         pass
     after = _read_live(client, obj)
     remaining = _top_diff(_writeable(after), plan["_proposed"])

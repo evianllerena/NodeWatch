@@ -121,8 +121,7 @@ window.MistTools.security = (() => {
   let initd = false;
 
   // ---------------------------------------------------------------- helpers
-  const esc = (v) =>
-    String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const esc = nwEscapeHtml; // one shared escaper (core.js)
   const num = (n) => (n == null ? '—' : Number(n).toLocaleString());
   const plural = (n, one, many = `${one}s`) => `${num(n)} ${Number(n) === 1 ? one : many}`;
   const ago = (t) => {
@@ -145,17 +144,7 @@ window.MistTools.security = (() => {
     if (S.sample) u.set('sample', 'true');
     return u.toString();
   };
-  async function api(path, opts = {}) {
-    const r = await fetch(path, opts.body ? { ...opts, headers: { 'Content-Type': 'application/json' } } : opts);
-    let body = {};
-    try {
-      body = await r.json();
-    } catch {
-      /* empty */
-    }
-    if (!r.ok) throw new Error(body.detail ? (typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail)) : `HTTP ${r.status}`);
-    return body;
-  }
+  const api = (path, opts = {}) => nwFetchJSON(path, opts); // shared helper (core.js)
   const reachChip = (r, label) => (r ? `<span class="soc-reach r${r}" title="Reach ${r}: ${esc(label || reachLabel(r))}"><b>${r}</b>${label === false ? '' : esc(label || reachLabel(r))}</span>` : '');
   const reachLabel = (r) => (S.data?.reach_scale || []).find((x) => x.level === r)?.label || '';
   const sevChip = (s) => `<span class="soc-sev s-${esc(s)}">${esc(SEV[s] || s)}</span>`;

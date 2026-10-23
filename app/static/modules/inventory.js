@@ -1,15 +1,7 @@
 (function () {
-  const esc = (s) =>
-    String(s ?? '').replace(
-      /[&<>'"]/g,
-      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c],
-    );
+  const esc = nwEscapeHtml; // one shared escaper (core.js)
   let items = [];
-  async function getJSON(url) {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
-  }
+  const getJSON = (url) => nwFetchJSON(url); // shared helper (core.js)
   function render() {
     let rows = [...items];
     const q = (document.querySelector('#inventorySearch')?.value || '').trim().toLowerCase();

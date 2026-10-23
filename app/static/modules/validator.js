@@ -1,17 +1,8 @@
-const valEsc = (v) =>
-  String(v ?? '').replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
-  );
+const valEsc = nwEscapeHtml; // one shared escaper (core.js)
 
 window.MistTools.validator = (() => {
   let initd = false;
-  async function j(u, o) {
-    const r = await fetch(u, o);
-    if (!r.ok)
-      throw new Error((await r.json().catch(() => ({ detail: r.statusText }))).detail || r.statusText);
-    return r.json();
-  }
+  const j = (u, o) => nwFetchJSON(u, o); // shared helper (core.js)
   async function init() {
     if (initd) return;
     initd = true;

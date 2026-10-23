@@ -99,3 +99,18 @@ class SupplyChain(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TokenFreeProbe(unittest.TestCase):
+    """v0.10.44 (report: the probe revealed configured, mode and TLS flags): only what the launchers read."""
+
+    def test_probe_answers_only_the_handshake_fields(self):
+        import app.main as main
+        from tests.support.asgi import Client
+
+        body = Client(main.app, token=None).get("/api/status", params={"probe": "true"})
+        self.assertEqual(body.status, 200)
+        import json as _json
+
+        keys = set(_json.loads(body.body))
+        self.assertLessEqual(keys, {"version", "build", "pid", "port", "read_only", "launch_proof", "identity_proof"})

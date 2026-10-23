@@ -6,11 +6,7 @@
 // Layout (columns + order) is remembered per browser. Rendering is plain innerHTML with escaping.
 (function () {
   const STORE = 'nodewatch.trafficLog.v1';
-  const esc = (v = '') =>
-    String(v ?? '').replace(
-      /[&<>'"]/g,
-      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c],
-    );
+  const esc = nwEscapeHtml; // one shared escaper (core.js)
 
   function fmtBytes(n) {
     const v = Number(n);

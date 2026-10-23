@@ -2,8 +2,7 @@
 // print dialog ("Save as PDF"), plus the same data as CSV + JSON files. Read-only.
 (function () {
   const API = '/api/v1/topology';
-  const esc = (v) =>
-    String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const esc = nwEscapeHtml; // one shared escaper (core.js)
   const num = (n) => (n == null || n === '' ? '—' : Number(n).toLocaleString());
   const plural = (n, one, many = `${one}s`) => `${num(n)} ${Number(n) === 1 ? one : many}`;
   const bps = (v) => {
@@ -56,20 +55,7 @@
     },
   };
 
-  async function api(path, opts = {}) {
-    const res = await fetch(path, opts.body ? { ...opts, headers: { 'Content-Type': 'application/json' } } : opts);
-    if (!res.ok) {
-      let detail = `${res.status} ${res.statusText}`;
-      try {
-        const b = await res.json();
-        if (b?.detail) detail = typeof b.detail === 'string' ? b.detail : JSON.stringify(b.detail);
-      } catch {
-        /* not JSON */
-      }
-      throw new Error(detail);
-    }
-    return res.json();
-  }
+  const api = (path, opts = {}) => nwFetchJSON(path, opts); // shared helper (core.js)
 
   // ---------------------------------------------------------------- dialog
   const D = { audience: store.get('audience', 'engineer'), sections: null, scope: 'org', picked: new Set(), skipEmpty: true, mask: false, data: true, ctx: null, job: null };

@@ -83,8 +83,8 @@ jobs:
       - name: Run the suite with the bundled Windows Python
         shell: pwsh
         run: >
-          & "${{ runner.temp }}\nw\NodeWatch\_internal\runtime\python\python.exe" tests\run.py -v --target bundle
-          --root "${{ runner.temp }}\nw\NodeWatch\_internal" --min-tests 69 --report test-result-windows.json
+          & "${{ runner.temp }}\nw\NodeWatch\_internal\runtime\python\python.exe" -B tests\run.py -v --target bundle
+          --root "${{ runner.temp }}\nw\NodeWatch\_internal" --min-tests 72 --report test-result-windows.json
       - name: Report test results
         if: always()
         run: python tests/tools/annotate.py test-result-windows.json
@@ -182,7 +182,7 @@ jobs:
         run: |
           rm -rf "$RUNNER_TEMP/check" && ditto -x -k dist/*.zip "$RUNNER_TEMP/check"
           I="$RUNNER_TEMP/check/NodeWatch.app/Contents/Resources/_internal"
-          "$I/runtime-macos/python-arm64/bin/python3.12" tests/run.py -v --target bundle --root "$I" --min-tests 69 --report test-result-macos.json
+          "$I/runtime-macos/python-arm64/bin/python3.12" -B tests/run.py -v --target bundle --root "$I" --min-tests 72 --report test-result-macos.json
       - name: Report test results
         if: always()
         run: python3 tests/tools/annotate.py test-result-macos.json

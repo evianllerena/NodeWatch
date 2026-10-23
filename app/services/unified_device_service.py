@@ -156,7 +156,7 @@ def unified_search_detective(query: str, site_id: str | None = None) -> dict[str
         try:
             by_mac = search_detective(display_mac(intel_mac), site_id=site_id)
             rows.extend(by_mac.get("results") or [])
-        except Exception:
+        except Exception:  # noqa: BLE001 - the extra lookup by MAC is best effort; the first search's results stand
             pass
 
     if intel_mac:

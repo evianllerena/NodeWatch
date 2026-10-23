@@ -7,32 +7,10 @@ window.MistTools.alerting = (() => {
   const primedSources = new Set();
   let pollTimer = null;
   let primed = false;
-  const esc = (v = '') =>
-    String(v).replace(
-      /[&<>'"]/g,
-      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c],
-    );
+  const esc = nwEscapeHtml; // one shared escaper (core.js)
 
-  async function getJSON(url) {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
-  }
-  async function postJSON(url, body = {}) {
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!r.ok) {
-      let t = await r.text();
-      try {
-        t = JSON.parse(t).detail || t;
-      } catch {}
-      throw new Error(t);
-    }
-    return r.json();
-  }
+  const getJSON = (url) => nwFetchJSON(url); // shared helper (core.js)
+  const postJSON = (url, body = {}) => nwFetchJSON(url, { method: 'POST', body: JSON.stringify(body) });
   function fmtMac(v = '') {
     const raw = String(v)
       .replace(/[^0-9a-f]/gi, '')

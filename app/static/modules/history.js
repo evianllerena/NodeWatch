@@ -1,10 +1,6 @@
 window.MistTools = window.MistTools || {};
 window.MistTools.history = (() => {
-  const esc = (v = '') =>
-    String(v ?? '').replace(
-      /[&<>'"]/g,
-      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c],
-    );
+  const esc = nwEscapeHtml; // one shared escaper (core.js)
   // v0.10.24: provider activity comes from every connected source in vendor-neutral shapes
   // (/api/v1/history → audit_entries + actors, see app/services/audit_people.py).
   let current = { audit_entries: [], actors: {}, local_changes: [], errors: [] };

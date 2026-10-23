@@ -18,23 +18,9 @@ window.MistTools.detective = (() => {
     pageSize = 100;
   const REFRESH_SECONDS = 15;
 
-  const esc = (v) =>
-    String(v ?? '').replace(
-      /[&<>'"]/g,
-      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c],
-    );
+  const esc = nwEscapeHtml; // one shared escaper (core.js)
   const present = (v) => !(v === undefined || v === null || v === '');
-  async function getJSON(url) {
-    const r = await fetch(url);
-    if (!r.ok) {
-      let t = await r.text();
-      try {
-        t = JSON.parse(t).detail || t;
-      } catch {}
-      throw new Error(t || `HTTP ${r.status}`);
-    }
-    return r.json();
-  }
+  const getJSON = (url) => nwFetchJSON(url); // shared helper (core.js)
   function cleanMac(value) {
     return String(value ?? '')
       .replace(/[^0-9a-f]/gi, '')

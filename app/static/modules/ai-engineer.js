@@ -1,8 +1,4 @@
-const aiEsc = (v) =>
-  String(v ?? '').replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
-  );
+const aiEsc = nwEscapeHtml; // one shared escaper (core.js)
 
 // Operations Assistant: chat-style, read-only questions about the live Mist network.
 // Voice input uses the browser's Web Speech API (Edge/Chrome transcribe with their online

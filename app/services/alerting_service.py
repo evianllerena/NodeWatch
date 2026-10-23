@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from app.core.epoch import epoch_seconds
+
 from app.core.errors import NotConfiguredError
 from app.core.version import APP_VERSION
 
 import hashlib
 import json
+import logging
 import ssl
 import threading
 import time
@@ -89,16 +92,7 @@ def _save(path: Path, data: dict) -> None:
     write_private_text(path, json.dumps(data, indent=2, default=str))
 
 
-def _epoch(value) -> float:
-    if value in (None, ""):
-        return 0.0
-    try:
-        n = float(value)
-        if n > 1e12:
-            n /= 1000.0
-        return n
-    except (TypeError, ValueError):
-        return 0.0
+_epoch = epoch_seconds  # shared helper (app/core/epoch.py)
 
 
 def _fmt_mac(value) -> str:
@@ -847,8 +841,8 @@ def _loop() -> None:
                 # Alerts are decided on current data: no stale-while-revalidate answers (v0.10.40).
                 with no_stale():
                     poll_and_notify()
-            except Exception:
-                pass
+            except Exception:  # noqa: BLE001 - the monitor keeps running; the failure is logged
+                logging.getLogger("nodewatch.alerting").warning("Alert poll failed", exc_info=True)
         _STOP.wait(max(30, int(cfg.get("poll_seconds") or 60)))
 
 

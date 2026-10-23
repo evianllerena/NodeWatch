@@ -195,8 +195,9 @@ def _connected_products(client) -> list[str]:
 
 
 def _probe_answer(request: Request) -> dict:
-    """The launcher's handshake (v0.10.33): version, build, port and the two proofs only. It never waits for
-    the Mist client, settings or credentials, so a slow start-up of anything else cannot fail the handshake."""
+    """The launcher's handshake (v0.10.33): version, build, pid, port and the two proofs only. It never waits for
+    the Mist client, settings or credentials, so a slow start-up of anything else cannot fail the handshake.
+    v0.10.44: it no longer says whether a vendor is configured or TLS checks are off; that needs the request token."""
     own_port = int(os.environ.get("NODEWATCH_ACTIVE_PORT") or 0) or None
     result: dict = {"version": APP_VERSION, "build": APP_BUILD, "pid": os.getpid(), "port": own_port, "read_only": False}
     try:
@@ -215,17 +216,6 @@ def _probe_answer(request: Request) -> dict:
         proof = identity_proof(STATE_ROOT, challenge, own_port)
         if proof:
             result["identity_proof"] = proof
-    try:  # what the UI shows before its first full status read; cheap and never blocking on the network
-        from app.services import mist_client as mc
-
-        client = mc._client  # noqa: SLF001 - only if already built
-        if client is not None:
-            result["configured"] = bool(client.configured)
-            result["mode"] = "live" if client.configured else "setup-required"
-            result["mist_connected"] = False
-            result["tls_verification_disabled"] = not client.settings.verify_tls
-    except Exception:  # noqa: BLE001
-        pass
     return result
 
 
@@ -318,7 +308,7 @@ def export_diagnostics():
             value = str(pa_credentials.get(key) or "")
             if value:
                 known_secrets.append(value)
-    except Exception:
+    except Exception:  # noqa: BLE001 - no Palo Alto secret to redact
         pass
     try:
         sls_credentials = get_strata_logging_credentials()
@@ -332,7 +322,7 @@ def export_diagnostics():
             value = load_secret(DATA_ROOT, target)
             if value:
                 known_secrets.append(value)
-        except Exception:
+        except Exception:  # noqa: BLE001 - no stored secret to redact
             pass
 
     summary = {
@@ -439,7 +429,7 @@ def export_diagnostics():
                     }
                 )
         summary["strata_logging_service"]["recent_trace"] = sls_trace[-30:]
-    except Exception:
+    except Exception:  # noqa: BLE001 - the export leaves out a trace it cannot read
         pass
 
     # v0.10.30: Security Operations — counts and source health only (never detection content), and which

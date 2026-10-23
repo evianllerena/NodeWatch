@@ -24,11 +24,7 @@ window.MistTools.dashboard = (() => {
   let suppressedData = null;
   const drawer = { id: '', detail: null, members: [], offset: 0, loading: false };
   const severityRank = { critical: 0, major: 1, warning: 2, info: 3 };
-  const escapeHtml = (v = '') =>
-    String(v).replace(
-      /[&<>'"]/g,
-      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c],
-    );
+  const escapeHtml = nwEscapeHtml; // one shared escaper (core.js)
   const DEVICE_LABEL = { ap: 'Access point', switch: 'Switch', gateway: 'Gateway' };
   const ROLE_LABEL = {
     wireless_ap: 'AP',
@@ -110,22 +106,7 @@ window.MistTools.dashboard = (() => {
       .toLowerCase()
       .replace(/[^a-z0-9_-]/g, '');
 
-  async function postJSON(url, body = {}) {
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!r.ok) {
-      let msg = await r.text();
-      try {
-        const j = JSON.parse(msg);
-        msg = j.detail || msg;
-      } catch {}
-      throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
-    }
-    return r.json();
-  }
+  const postJSON = (url, body = {}) => nwFetchJSON(url, { method: 'POST', body: JSON.stringify(body) }); // core.js
 
   // ------------------------------------------------------------------ summary tiles
   function summaryCards() {

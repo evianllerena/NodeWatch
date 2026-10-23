@@ -35,24 +35,10 @@
   let loading = null;
   let wiz = null; // { id, step, mode: 'new'|'edit'|'retest', values, report, testing, saved, query }
 
-  const esc = (v) =>
-    String(v ?? '').replace(
-      /[&<>'"]/g,
-      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c],
-    );
+  const esc = nwEscapeHtml; // one shared escaper (core.js)
 
-  async function call(url, options = {}) {
-    const r = await fetch(url, {
-      ...options,
-      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    });
-    let body = {};
-    try {
-      body = await r.json();
-    } catch {}
-    if (!r.ok) throw new Error(body.detail || body.error || `HTTP ${r.status}`);
-    return body;
-  }
+  const call = (url, options = {}) =>
+    nwFetchJSON(url, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } }); // core.js
 
   const rows = () => catalog?.connectors || [];
   const row = (id) => rows().find((c) => c.connector_id === id);
