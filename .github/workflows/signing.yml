@@ -60,23 +60,21 @@ jobs:
       - name: Setup (throw-away keys on the runner) and sign
         shell: pwsh
         run: |
+          function Note($title, $text) { $t = ($text -join "`n") -replace '%','%25' -replace "`r",'' -replace "`n",'%0A'; Write-Output "::notice title=$title::$($t.Substring(0, [Math]::Min(3500, $t.Length)))" }
+          function Run($title) { $out = & $args[0] $args[1..($args.Count - 1)] 2>&1 | ForEach-Object { "$_" }; $code = $LASTEXITCODE; Note "$title (exit $code)" $out; if ($code -ne 0) { throw "$title failed" } }
           New-Item -ItemType Directory -Force -Path work | Out-Null
           Copy-Item dist\NodeWatch.exe work\NodeWatch.exe
           Push-Location work
-          ..\dist\NodeWatch-Sign.exe setup
-          if ($LASTEXITCODE -ne 0) { throw "setup failed" }
+          Run "setup" ..\dist\NodeWatch-Sign.exe setup
           # On the customer's PCs their IT does this by Group Policy; here the test trusts the throw-away certificate.
           Import-Certificate -FilePath BWN-NodeWatch-CodeSigning.cer -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
           Import-Certificate -FilePath BWN-NodeWatch-CodeSigning.cer -CertStoreLocation Cert:\LocalMachine\TrustedPublisher | Out-Null
-          ..\dist\NodeWatch-Sign.exe sign NodeWatch.exe 2>&1 | Tee-Object -FilePath ..\sign.txt
-          if ($LASTEXITCODE -ne 0) { throw "sign failed" }
-          ..\dist\NodeWatch-Sign.exe verify NodeWatch.exe minisign.pub
-          if ($LASTEXITCODE -ne 0) { throw "verify failed" }
+          Run "sign" ..\dist\NodeWatch-Sign.exe sign NodeWatch.exe
+          Run "verify" ..\dist\NodeWatch-Sign.exe verify NodeWatch.exe minisign.pub
           Pop-Location
           $s = Get-AuthenticodeSignature work\NodeWatch.exe
-          Write-Output "::notice title=installer signature::$($s.Status) $($s.SignerCertificate.Subject) timestamp=$([bool]$s.TimeStamperCertificate)"
+          Note "installer signature" "$($s.Status) $($s.SignerCertificate.Subject) timestamp=$([bool]$s.TimeStamperCertificate)"
           if ($s.Status -ne 'Valid') { throw "installer signature: $($s.Status) $($s.StatusMessage)" }
-          Write-Output "::notice title=sign output::$((Get-Content sign.txt) -join '%0A')"
       - name: The official minisign accepts the signature
         shell: pwsh
         env:
