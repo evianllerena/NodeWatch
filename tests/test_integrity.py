@@ -58,6 +58,11 @@ class BundleIntegrity(unittest.TestCase):
                  if p.name in {"__pycache__", "docs", ".git", "tests", "README.md"} or p.suffix in {".map", ".pdb"}]
         self.assertEqual(found, [])
 
+    def test_no_wrong_os_files_shipped(self):
+        """v0.10.47: the macOS app carries no Windows-only files (report: Windows files in the macOS app)."""
+        if (ROOT / "runtime-macos").exists():
+            self.assertEqual([r for r in ("app/core/app_window.py", "branding/startup.bmp") if (ROOT / r).exists()], [])
+
 
 @unittest.skipUnless(TARGET == "source", "source target only")
 class SourceTreeCompleteness(unittest.TestCase):

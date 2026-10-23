@@ -113,6 +113,8 @@ class Site(_Record):
     kind: str = "site"  # site | container | remote_network | building | floor | area
     parent_key: str = ""
     vendor: dict[str, Any] = field(default_factory=dict)
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 SITE_KINDS = ("site", "container", "remote_network", "building", "floor", "area", "cloud")
@@ -166,6 +168,8 @@ class Device(_Record):
     # [{"ip": "10.0.51.24", "interface": "ethernet1/1", "zone": "untrust-sdwan", "dir": "in" | "out"}]
     observed_peers: list[dict[str, Any]] = field(default_factory=list)
     vendor: dict[str, Any] = field(default_factory=dict)
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 NETWORK_TIERS = ("core", "distribution", "access", "")
@@ -211,6 +215,8 @@ class Interface(_Record):
     loss_pct: float | None = None
     jitter_ms: float | None = None
     vendor: dict[str, Any] = field(default_factory=dict)
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 # --------------------------------------------------------------------------- health
@@ -243,6 +249,8 @@ class Alert(_Record):
     console_url: str = ""
     facts: list[dict[str, Any]] = field(default_factory=list)  # [{label, value, kind}] readable evidence
     vendor: dict[str, Any] = field(default_factory=dict)
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 @dataclass
@@ -258,6 +266,8 @@ class Event(_Record):
     device_name: str = ""
     interface: str = ""
     vendor: dict[str, Any] = field(default_factory=dict)
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 # --------------------------------------------------------------------------- topology
@@ -280,6 +290,8 @@ class Neighbor(_Record):
     local_lag: str = ""  # aggregate the local port belongs to (ae0, Port-channel1) when known
     local_up: bool | None = None  # local port oper state when the source reports it
     speed_mbps: float | None = None  # negotiated speed of the local port when known
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 @dataclass
@@ -291,6 +303,8 @@ class L2Entry(_Record):
     mac: str
     interface: str
     vlan: int | None = None
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 @dataclass
@@ -302,6 +316,8 @@ class L3Entry(_Record):
     ip: str
     mac: str
     interface: str = ""
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 @dataclass
@@ -321,6 +337,8 @@ class Route(_Record):
     # site subnet it owns), False when learned or pointing at a remote network, None when unknown.
     # Topology uses only local routes to learn which subnets belong to which site.
     local: bool | None = None
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -350,6 +368,8 @@ class Tunnel(_Record):
     jitter_ms: float | None = None
     circuit_key: str = ""  # Circuit.key this tunnel rides on, when known
     vendor: dict[str, Any] = field(default_factory=dict)
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 TUNNEL_LAYERS = ("overlay", "underlay", "passthrough", "")
@@ -394,6 +414,8 @@ class Circuit(_Record):
     tx_bps: float | None = None
     comment: str = ""
     vendor: dict[str, Any] = field(default_factory=dict)
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 CIRCUIT_KINDS = ("internet", "mpls", "lte", "private", "unknown")
@@ -453,6 +475,8 @@ class EndpointLocation(_Record):
     vlan: int | None = None
     wireless: bool = False
     last_seen: float | None = None
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 @dataclass
@@ -468,6 +492,8 @@ class PolicyMatch(_Record):
     nat: str = ""
     detail: str = ""
     vendor: dict[str, Any] = field(default_factory=dict)
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 # --------------------------------------------------------------------------- audit (v0.10.24)
@@ -492,6 +518,8 @@ class Actor(_Record):
     last_used: float | None = None  # API tokens
     created_by: str = ""  # API tokens
     vendor: dict[str, Any] = field(default_factory=dict)
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 ACTOR_KINDS = ("person", "api_token", "system", "unknown")
@@ -519,6 +547,8 @@ class AuditEntry(_Record):
     action_label: str = ""  # the source's own readable verb ("Accessed", "Upgraded", "Rebooted") when finer than ``action``
     changes: list[dict[str, Any]] = field(default_factory=list)  # [{"field", "before", "after"}]
     vendor: dict[str, Any] = field(default_factory=dict)
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 AUDIT_ACTIONS = ("create", "update", "delete", "login", "other")
@@ -606,6 +636,8 @@ class SecurityEvent(_Record):
     native_id: str = ""
     console_url: str = ""
     vendor: dict[str, Any] = field(default_factory=dict)
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 EXPOSURE_STATES = ("open", "mitigated", "accepted", "fixed")
@@ -641,6 +673,8 @@ class Exposure(_Record):
     detail: str = ""
     console_url: str = ""
     vendor: dict[str, Any] = field(default_factory=dict)
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one
 
 
 SECURITY_INCIDENT_STATES = ("new", "investigating", "contained", "resolved", "dismissed")
@@ -667,3 +701,5 @@ class SecurityIncident(_Record):
     native_id: str = ""
     console_url: str = ""
     vendor: dict[str, Any] = field(default_factory=dict)
+    connection_id: str = ""  # which connection reported it (v0.10.47; the connector id for the first one)
+    tenant_id: str = ""  # org / TSG / VDOM within that connection, when the vendor has one

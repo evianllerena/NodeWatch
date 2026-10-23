@@ -567,6 +567,10 @@ class FortiGateConnector(Connector):
         return plan(self)
 
     # ---- connection test --------------------------------------------------------------------------
+    def tenant_id(self) -> str:
+        """The VDOM this connection reads ("" = the token's default VDOM) (v0.10.47)."""
+        return _text(self._saved().get("vdom"))  # saved settings only: no credential-store read
+
     def test_connection(self) -> dict[str, Any]:
         if not self.configured:
             return {

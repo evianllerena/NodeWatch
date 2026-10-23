@@ -83,7 +83,12 @@ def repo_app_files() -> dict[str, bytes]:
     return out
 
 
-def new_internal_files(current: dict[str, bytes], build: str) -> tuple[dict[str, bytes], list[str]]:
+# Files only one platform uses (v0.10.47, report: Windows files in the macOS app). app_window.py is imported
+# only on Windows (app/launcher.py); startup.bmp is the Windows launcher's splash.
+WINDOWS_ONLY = ("app/core/app_window.py", "branding/startup.bmp")
+
+
+def new_internal_files(current: dict[str, bytes], build: str, platform: str) -> tuple[dict[str, bytes], list[str]]:
     """current: rel path under _internal -> bytes (shipped). Returns the new map and a change report."""
     if len(build) != len(SHIPPED_BUILD):
         raise SystemExit(f"build id must be {len(SHIPPED_BUILD)} characters: {build!r}")
@@ -111,6 +116,10 @@ def new_internal_files(current: dict[str, bytes], build: str) -> tuple[dict[str,
         del new[rel]
     if dropped:
         report.append(f"removed  docs/ and README.md ({len(dropped)} files)")
+    if platform == "macos":
+        for rel in WINDOWS_ONLY:
+            if new.pop(rel, None) is not None:
+                report.append(f"removed  {rel} (Windows only)")
     version, placeholder = repo_version()
     if f"const FRONTEND_VERSION = '{version}';" not in new["app/static/core.js"].decode("utf-8"):
         raise SystemExit(f"app/static/core.js FRONTEND_VERSION is not {version} (set both with the version)")
@@ -262,7 +271,7 @@ def build_windows(installer: Path, out: Path, build: str) -> None:
     prefix = "NodeWatch/_internal/"
     current = {e["name"][len(prefix):]: inflate(e) for e in entries if e["name"].startswith(prefix) and not e["name"].endswith("/")}
     launcher_entry = next(e for e in entries if e["name"] == "NodeWatch/NodeWatch.exe")
-    new, report = new_internal_files(current, build)
+    new, report = new_internal_files(current, build, "windows")
     launcher = compile_windows_launcher(sha256(new["integrity.json"]), build)
 
     kept = []
@@ -296,7 +305,7 @@ def build_windows(installer: Path, out: Path, build: str) -> None:
 def build_macos(app: Path, build: str) -> None:
     internal = app / "Contents" / "Resources" / "_internal"
     current = {p.relative_to(internal).as_posix(): p.read_bytes() for p in internal.rglob("*") if p.is_file()}
-    new, report = new_internal_files(current, build)
+    new, report = new_internal_files(current, build, "macos")
     for rel in set(current) - set(new):
         (internal / rel).unlink()
     shutil.rmtree(internal / "docs", ignore_errors=True)

@@ -484,8 +484,44 @@ def _latest_meta(pred) -> dict | None:
     return None
 
 
+_FLAGS_RECHECKED = False
+_FLAGS_LOCK = threading.Lock()
+
+
+def _recheck_encrypted_flags() -> None:
+    """Once per run (v0.10.47, report: legacy flags not re-checked): set each index entry's "encrypted"
+    from the snapshot file's own header. Before v0.10.22 the index claimed encryption on every Windows PC
+    whatever _encode actually did, so an old entry could say encrypted for a plain file. Only the first
+    bytes of each file are read; a missing or unreadable file keeps its entry unchanged."""
+    global _FLAGS_RECHECKED
+    with _FLAGS_LOCK:
+        if _FLAGS_RECHECKED:
+            return
+        _FLAGS_RECHECKED = True
+    actual: dict[str, bool] = {}
+    for meta in _read_index():
+        try:
+            with _snap_path(meta["id"]).open("rb") as fh:
+                actual[meta["id"]] = _is_encrypted(fh.read(64))
+        except (OSError, ValueError):
+            continue
+    if not any(bool(m.get("encrypted")) != actual[m["id"]] for m in _read_index() if m["id"] in actual):
+        return
+
+    def update(current):
+        rows = [dict(m) for m in (current or []) if isinstance(m, dict)]
+        for m in rows:
+            if m.get("id") in actual and bool(m.get("encrypted")) != actual[m["id"]]:
+                _LOG.info("Backup %s: encrypted flag corrected to %s from the file header", m["id"], actual[m["id"]])
+                m["encrypted"] = actual[m["id"]]
+        return rows
+
+    locked_json_update(INDEX_PATH, update, default=[])
+
+
 def list_snapshots(limit: int = 500, site_id: str | None = None) -> list[dict]:
     _migrate_legacy()
+    _recheck_encrypted_flags()
     rows = _read_index()
     if site_id:
         rows = [m for m in rows if _meta_touches_site(m, site_id)]

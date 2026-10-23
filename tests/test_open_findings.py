@@ -199,6 +199,30 @@ class LowFindings(unittest.TestCase):
 # ------------------------------------------------------------------ review: cleanup
 
 
+class LegacyBackupFlags(unittest.TestCase):
+    """Low (fixed in v0.10.47): an old index entry's "encrypted" flag is corrected from the file header."""
+
+    def test_flags_follow_the_files(self):
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+
+        from app.services import backup_service as b
+
+        with tempfile.TemporaryDirectory() as tmp:
+            snaps, index = Path(tmp) / "snapshots", Path(tmp) / "index.json"
+            snaps.mkdir()
+            plain, sealed, gone = "20250101T000000Z-legacy-aaaaaa", "20250101T000000Z-legacy-bbbbbb", "20250101T000000Z-legacy-cccccc"
+            (snaps / f"{plain}{b.SNAP_EXT}").write_bytes(b"\x1f\x8b plain gzip")
+            (snaps / f"{sealed}{b.SNAP_EXT}").write_bytes(b._DPAPI_MAGIC + b"sealed")
+            rows = [{"id": plain, "encrypted": True}, {"id": sealed, "encrypted": False}, {"id": gone, "encrypted": True}]
+            index.write_text(json.dumps(rows), encoding="utf-8")
+            with mock.patch.object(b, "SNAP_DIR", snaps), mock.patch.object(b, "INDEX_PATH", index), \
+                    mock.patch.object(b, "_FLAGS_RECHECKED", False), mock.patch.object(b, "_migrate_legacy", lambda: None):
+                got = {m["id"]: m["encrypted"] for m in b.list_snapshots()}
+        self.assertEqual(got, {plain: False, sealed: True, gone: True})
+
+
 class Cleanup(unittest.TestCase):
     def test_no_unreachable_probe_block_in_status(self):
         tree = ast.parse(_src("modules/system/router.py"))
@@ -273,7 +297,6 @@ class DiscoveryAllowlists(unittest.TestCase):
 
 
 class Neutrality(unittest.TestCase):
-    @open_finding
     def test_N1_records_carry_connection_and_tenant(self):
         from app.integrations import domain
 
@@ -282,7 +305,6 @@ class Neutrality(unittest.TestCase):
             with self.subTest(record=cls_name):
                 self.assertTrue({"connection_id", "tenant_id"} <= names)
 
-    @open_finding
     def test_N1_stored_keys_carry_connection(self):
         """Fields alone are not enough: site and device keys must differ between two connections of one vendor."""
         import inspect
@@ -291,6 +313,72 @@ class Neutrality(unittest.TestCase):
         for fn in (sdk.site_key, sdk.device_key, sdk.save_connector_settings):
             with self.subTest(function=fn.__name__):
                 self.assertIn("connection_id", inspect.signature(fn).parameters)
+
+    def test_N1_first_connection_keys_and_names_unchanged(self):
+        """Data stored before v0.10.47 must still match: the first connection keeps every key and credential name."""
+        from app.integrations.connectors import sdk
+        from app.integrations.domain import stable_key
+
+        self.assertEqual(sdk.site_key("fortigate", "root"), stable_key("site", "fortigate", "root"))
+        self.assertEqual(sdk.site_key("fortigate", "root", connection_id="fortigate"), stable_key("site", "fortigate", "root"))
+        self.assertEqual(sdk.device_key(source="snmp", native_id="10.0.0.1"), stable_key("snmp", "10.0.0.1"))
+        self.assertNotEqual(sdk.site_key("fortigate", "root", connection_id="fortigate-2"), sdk.site_key("fortigate", "root"))
+        self.assertEqual(sdk.device_key(mac="00:11:22:33:44:55", connection_id="fortigate-2"), sdk.device_key(mac="001122334455"))
+        self.assertEqual(sdk._secret_ref(sdk.get_connector("fortigate").connection_id, "api_token"),
+                         "NodeWatch:Connector:fortigate:api_token")
+
+    def test_N1_two_connections_of_one_connector_stay_apart(self):
+        from unittest import mock
+
+        from app.integrations.connectors import sdk
+
+        vault: dict[str, str] = {}
+        fake = mock.Mock(get=lambda ref: vault.get(ref, ""), put=lambda ref, v, username="": vault.__setitem__(ref, v),
+                         delete=lambda ref: vault.pop(ref, None))
+        with mock.patch.object(sdk, "SECRETS", fake), mock.patch.object(sdk, "_invalidate_maps", lambda: None):
+            second = sdk.add_connection("fortigate", "Branch office")
+            try:
+                self.assertEqual(second.connection_id, "fortigate-2")
+                self.assertEqual([c.connection_id for c in sdk.connections_of("fortigate")], ["fortigate", "fortigate-2"])
+                sdk.save_connector_settings("fortigate", {"base_url": "https://hq.example.com", "api_token": "a" * 30, "vdom": "root"})
+                sdk.save_connector_settings("fortigate", {"base_url": "https://branch.example.com", "api_token": "b" * 30, "vdom": "dmz"},
+                                            connection_id="fortigate-2")
+                first = sdk.get_connector("fortigate")
+                self.assertEqual(first.settings()["base_url"], "https://hq.example.com")
+                self.assertEqual(second.settings()["base_url"], "https://branch.example.com")
+                self.assertEqual((first.secret("api_token"), second.secret("api_token")), ("a" * 30, "b" * 30))
+                self.assertEqual((first.tenant_id(), second.tenant_id()), ("root", "dmz"))
+            finally:
+                sdk.remove_connection("fortigate-2")
+                sdk.remove_connector_settings("fortigate")
+        self.assertIsNone(sdk.get_connector("fortigate-2"))
+        self.assertEqual(vault, {})
+        self.assertNotIn("fortigate-2", sdk.load_connector_settings().get(sdk.CONNECTIONS_KEY, {}))
+
+    def test_N1_records_are_stamped_with_their_connection(self):
+        from app.integrations.connectors import sdk
+        from app.integrations.domain import Site
+
+        base = sdk.get_connector("fortigate")
+
+        class Probe(type(base)):
+            def list_sites(self):
+                return [Site(key="k", source="fortigate", name="HQ")]
+
+            def tenant_id(self):
+                return "dmz"
+
+        one = Probe()
+        one.connection_id = "fortigate-7"
+        row = one.list_sites()[0]
+        self.assertEqual((row.connection_id, row.tenant_id), ("fortigate-7", "dmz"))
+
+        class Preset(Probe):
+            def list_sites(self):
+                return [Site(key="k", source="fortigate", name="HQ", connection_id="x", tenant_id="y")]
+
+        kept = Preset().list_sites()[0]
+        self.assertEqual((kept.connection_id, kept.tenant_id), ("x", "y"))  # only empty fields are filled
 
     def test_N3_sdk_imports_nothing_vendor_named(self):
         """Fixed in v0.10.45: the shared HTTPS client moved to app.core.http_pool."""

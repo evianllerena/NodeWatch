@@ -17,10 +17,13 @@ Contract tests in ``tests/test_connectors_contract.py`` run against every discov
 from __future__ import annotations
 
 import contextvars
+import functools
 import importlib
+import inspect
 import json
 import logging
 import pkgutil
+import re
 import socket
 import ssl
 import threading
@@ -39,7 +42,7 @@ from app.integrations.base import IntegrationError, ProviderAdapter, ProviderDes
 from app.core.security import redact_text
 from app.core.version import APP_VERSION
 from app.integrations.contracts import ALL_CAPABILITIES, CAPABILITY_LABELS, CAPABILITY_PROTOCOLS
-from app.integrations.domain import normalize_mac, stable_key
+from app.integrations.domain import _Record, normalize_mac, stable_key
 from app.integrations.secrets import SecretStore
 
 log = logging.getLogger("nodewatch.connectors")
@@ -274,8 +277,63 @@ class ConnectorManifest:
         return d
 
 
-def _secret_ref(connector_id: str, key: str) -> str:
-    return f"NodeWatch:Connector:{connector_id}:{key}"
+def _secret_ref(connection_id: str, key: str) -> str:
+    """Credential-store name; the first connection's id is the connector id, so its name never changed."""
+    return f"NodeWatch:Connector:{connection_id}:{key}"
+
+
+# Record methods whose results are stamped with the connection that produced them (v0.10.47, N1).
+_RECORD_METHOD_PREFIXES = ("list_", "search_", "get_", "locate_", "lookup_", "query_")
+
+
+def _stamp(record: Any, connection_id: str, tenant: Callable[[], str]) -> None:
+    if not isinstance(record, _Record):
+        return
+    if hasattr(record, "connection_id") and not record.connection_id:
+        record.connection_id = connection_id
+    if hasattr(record, "tenant_id") and not record.tenant_id:
+        record.tenant_id = tenant()
+
+
+def _stamp_records_of(connector: "Connector") -> None:
+    """Wrap the instance's record-returning methods so every record carries connection_id (and tenant_id).
+
+    Only empty fields are filled, nothing else in a record changes, and non-record results pass through.
+    The tenant is asked once per result (settings can change while NodeWatch runs)."""
+
+    def tenant_once() -> Callable[[], str]:
+        cache: dict[str, str] = {}
+
+        def tenant() -> str:
+            if "t" not in cache:
+                try:
+                    cache["t"] = str(connector.tenant_id() or "")
+                except Exception:  # noqa: BLE001 - a tenant label must never fail a read
+                    cache["t"] = ""
+            return cache["t"]
+
+        return tenant
+
+    for name in dir(type(connector)):
+        if not name.startswith(_RECORD_METHOD_PREFIXES):
+            continue
+        attr = getattr(type(connector), name, None)
+        if not inspect.isfunction(attr):
+            continue
+        bound = getattr(connector, name)
+
+        def wrapped(*args: Any, __fn: Callable[..., Any] = bound, **kwargs: Any) -> Any:
+            result = __fn(*args, **kwargs)
+            cid, tenant = connector.connection_id, tenant_once()
+            if isinstance(result, _Record):
+                _stamp(result, cid, tenant)
+            elif isinstance(result, (list, tuple)):
+                for item in result:
+                    _stamp(item, cid, tenant)
+            return result
+
+        functools.update_wrapper(wrapped, bound)
+        setattr(connector, name, wrapped)
 
 
 # --------------------------------------------------------------------------- capability probes (v0.10.18)
@@ -534,12 +592,25 @@ class Connector(ProviderAdapter):
         self.transport: Any = None
         self.settings_override: dict[str, Any] | None = None
         self.secret_override: dict[str, str] | None = None
+        # v0.10.47 (N1): which connection of this connector the instance is. The first connection's id is
+        # the connector id, so its settings, credentials and keys are exactly what they were before.
+        self.connection_id: str = self.manifest.connector_id
+        self.connection_label: str = ""
+        _stamp_records_of(self)
+
+    @property
+    def is_first_connection(self) -> bool:
+        return self.connection_id == self.manifest.connector_id
+
+    def tenant_id(self) -> str:
+        """The org / TSG / VDOM this connection reads, when the vendor has one (override; "" = none)."""
+        return ""
 
     # ---- settings -----------------------------------------------------------------------------
     def _saved(self) -> dict[str, Any]:
         if self.settings_override is not None:
             return self.settings_override
-        return load_connector_settings().get(self.manifest.connector_id, {})
+        return load_connector_settings().get(self.connection_id, {})
 
     def settings(self) -> dict[str, Any]:
         """Saved non-secret settings merged over defaults; secrets as booleans (present/absent)."""
@@ -557,7 +628,7 @@ class Connector(ProviderAdapter):
         """A saved secret value — use only to authenticate; never return, log or put it in an error."""
         if self.secret_override is not None:
             return str(self.secret_override.get(key) or "")
-        return SECRETS.get(_secret_ref(self.manifest.connector_id, key))
+        return SECRETS.get(_secret_ref(self.connection_id, key))
 
     def secret_values(self) -> list[str]:
         return [v for v in (self.secret(f.key) for f in self.manifest.settings if f.type == "secret") if v]
@@ -740,23 +811,29 @@ class Connector(ProviderAdapter):
 # --------------------------------------------------------------------------- shared helpers
 
 
-def device_key(*, mac: Any = "", serial: Any = "", source: str = "", native_id: Any = "") -> str:
+def _scoped(source: str, connection_id: str) -> tuple[str, ...]:
+    """Key parts for a connector's own ids: unchanged for its first connection (connection_id empty or the
+    connector id), so keys stored before v0.10.47 still match; other connections get keys of their own."""
+    return (source,) if not connection_id or connection_id == source else (source, connection_id)
+
+
+def device_key(*, mac: Any = "", serial: Any = "", source: str = "", native_id: Any = "", connection_id: str = "") -> str:
     """The vendor-neutral device key every connector should use.
 
-    Same box → same key, whichever vendor reports it: base MAC first, then serial number, and only
-    when neither is known a key scoped to the reporting connector.
+    Same box → same key, whichever vendor or connection reports it: base MAC first, then serial number,
+    and only when neither is known a key scoped to the reporting connection.
     """
     bare = normalize_mac(mac)
     if bare:
         return stable_key("mac", bare)
     if str(serial or "").strip():
         return stable_key("serial", str(serial).strip())
-    return stable_key(source, native_id)
+    return stable_key(*_scoped(source, connection_id), native_id)
 
 
-def site_key(source: str, native_id: Any) -> str:
-    """Site key scoped to the connector (sites are not shared between vendors)."""
-    return stable_key("site", source, native_id)
+def site_key(source: str, native_id: Any, connection_id: str = "") -> str:
+    """Site key scoped to the connection (sites are not shared between vendors or between connections)."""
+    return stable_key("site", *_scoped(source, connection_id), native_id)
 
 
 def epoch_seconds(value: Any) -> float | None:
@@ -1113,9 +1190,11 @@ def clean_connector_settings(
     return clean, new_secrets, cleared
 
 
-def save_connector_settings(connector_id: str, values: dict[str, Any]) -> dict[str, Any]:
-    """Validate and save a connector's form. Secret fields go to the secure credential store; blank keeps them."""
-    connector = get_connector(connector_id)
+def save_connector_settings(connector_id: str, values: dict[str, Any], connection_id: str = "") -> dict[str, Any]:
+    """Validate and save a connection's form. Secret fields go to the secure credential store; blank keeps them.
+
+    ``connection_id`` names one connection of the connector (default: its first, whose id is the connector id)."""
+    connector = get_connector(connection_id or connector_id)
     if connector is None:
         raise ValueError(f"Unknown connector {connector_id}")
     manifest = connector.manifest
@@ -1123,14 +1202,15 @@ def save_connector_settings(connector_id: str, values: dict[str, Any]) -> dict[s
         raise ValueError(f"{manifest.product} is configured on its own settings page")
     clean, new_secrets, cleared = clean_connector_settings(connector, values)
     labels = {f.key: f.label for f in manifest.settings}
+    connection_id = connector.connection_id
     for key, value in new_secrets.items():
-        SECRETS.put(_secret_ref(connector_id, key), value, username=f"NodeWatch {manifest.product} {labels[key]}")
+        SECRETS.put(_secret_ref(connection_id, key), value, username=f"NodeWatch {manifest.product} {labels[key]}")
     for key in cleared:
-        SECRETS.delete(_secret_ref(connector_id, key))
+        SECRETS.delete(_secret_ref(connection_id, key))
 
     def apply(current: Any) -> dict[str, Any]:
         data = current if isinstance(current, dict) else {}
-        data[connector_id] = clean
+        data[connection_id] = clean
         return data
 
     locked_json_update(CONNECTORS_FILE, apply)
@@ -1194,6 +1274,7 @@ def candidate_connector(connector_id: str, values: dict[str, Any]) -> Connector:
             )
         host_changed = True  # never fall back to a saved secret under changed settings
     candidate = type(connector)()
+    candidate.connection_id = connector.connection_id
     candidate.settings_override = clean
     candidate.secret_override = {
         f.key: new_secrets.get(f.key) or ("" if f.key in cleared or host_changed else connector.secret(f.key))
@@ -1211,6 +1292,7 @@ def saved_clone(connector_id: str) -> Connector:
     if connector.manifest.managed_elsewhere:
         return connector
     clone = type(connector)()
+    clone.connection_id = connector.connection_id
     clone.settings_override = {**connector._saved(), "enabled": True}
     clone.secret_override = {f.key: connector.secret(f.key) for f in connector.manifest.settings if f.type == "secret"}
     clone.transport = connector.transport  # test seam only (None in the app)
@@ -1241,10 +1323,12 @@ def set_connector_enabled(connector_id: str, enabled: bool) -> dict[str, Any]:
     if enabled and not connector.configured:
         raise ValueError("Fill in and save the connection first")
 
+    connection_id = connector.connection_id
+
     def apply(current: Any) -> dict[str, Any]:
         data = current if isinstance(current, dict) else {}
-        row = data.get(connector_id) if isinstance(data.get(connector_id), dict) else {}
-        data[connector_id] = {**row, "enabled": bool(enabled)}
+        row = data.get(connection_id) if isinstance(data.get(connection_id), dict) else {}
+        data[connection_id] = {**row, "enabled": bool(enabled)}
         return data
 
     locked_json_update(CONNECTORS_FILE, apply)
@@ -1484,13 +1568,14 @@ def remove_connector_settings(connector_id: str) -> None:
     connector = get_connector(connector_id)
     if connector is None or connector.manifest.managed_elsewhere:
         raise ValueError(f"Unknown or externally managed connector {connector_id}")
+    connection_id = connector.connection_id
     for f in connector.manifest.settings:
         if f.type == "secret":
-            SECRETS.delete(_secret_ref(connector_id, f.key))
+            SECRETS.delete(_secret_ref(connection_id, f.key))
 
     def apply(current: Any) -> dict[str, Any]:
         data = current if isinstance(current, dict) else {}
-        data.pop(connector_id, None)
+        data.pop(connection_id, None)
         return data
 
     locked_json_update(CONNECTORS_FILE, apply)
@@ -1571,9 +1656,94 @@ def discover() -> dict[str, Connector]:
                 except Exception as exc:  # noqa: BLE001 - one broken connector must not take NodeWatch down
                     log.exception("Connector %s failed to load", info.name)
                     _FAILED[info.name] = f"{type(exc).__name__}: {redact_text(exc)}"[:300]
+            _load_extra_connections()
         finally:
             _DISCOVERED = True
         return _CONNECTORS
+
+
+# --------------------------------------------------------------------------- more connections (v0.10.47, N1)
+# A connector's first connection is the connector itself (connection id = connector id). Further connections
+# of the same connector (a second Mist org, another FortiGate) are listed in connectors.json under
+# "_connections" as {connection_id: {"connector": connector_id, "label": text}} and each gets its own
+# instance, settings row and credential-store entries, named by its connection id.
+CONNECTIONS_KEY = "_connections"
+_CONNECTION_ID_RE = re.compile(r"^[a-z0-9_]+-[0-9]{1,4}$")
+
+
+def _new_connection(base: Connector, connection_id: str, label: str) -> Connector:
+    instance = type(base)()
+    instance.connection_id = connection_id
+    instance.connection_label = label
+    return instance
+
+
+def _load_extra_connections() -> None:
+    """Create the instances of saved extra connections (caller holds _LOCK, after the connectors loaded)."""
+    rows = load_connector_settings().get(CONNECTIONS_KEY)
+    for connection_id, row in (rows.items() if isinstance(rows, dict) else []):
+        base = _CONNECTORS.get(str((row or {}).get("connector") or ""))
+        if base is None or not _CONNECTION_ID_RE.match(str(connection_id)) or connection_id in _CONNECTORS:
+            continue
+        if base.manifest.managed_elsewhere:
+            continue  # configured on its own page; more connections of it come with that page (N2)
+        try:
+            _CONNECTORS[connection_id] = _new_connection(base, connection_id, str(row.get("label") or "")[:80])
+        except Exception as exc:  # noqa: BLE001 - one broken connection must not stop the others
+            log.warning("Connection %s failed to load: %s", connection_id, redact_text(exc))
+
+
+def connections_of(connector_id: str) -> list[Connector]:
+    """Every connection of a connector, its first one first."""
+    return sorted((c for c in discover().values() if c.manifest.connector_id == connector_id),
+                  key=lambda c: (not c.is_first_connection, c.connection_id))
+
+
+def add_connection(connector_id: str, label: str = "") -> Connector:
+    """Add another (empty, disabled) connection of a connector; fill it in like the first one."""
+    base = get_connector(connector_id)
+    if base is None or not base.is_first_connection:
+        raise ValueError(f"Unknown connector {connector_id}")
+    if base.manifest.managed_elsewhere:
+        raise ValueError(f"{base.manifest.product} is configured on its own settings page")
+    label = " ".join(str(label or "").split())[:80]
+    with _LOCK:
+        taken = {c for c in _CONNECTORS}
+        number = next(n for n in range(2, 10_000) if f"{connector_id}-{n}" not in taken)
+        connection_id = f"{connector_id}-{number}"
+
+        def apply(current: Any) -> dict[str, Any]:
+            data = current if isinstance(current, dict) else {}
+            rows = data.get(CONNECTIONS_KEY) if isinstance(data.get(CONNECTIONS_KEY), dict) else {}
+            rows[connection_id] = {"connector": connector_id, "label": label}
+            data[CONNECTIONS_KEY] = rows
+            return data
+
+        locked_json_update(CONNECTORS_FILE, apply)
+        _forget_settings_cache()
+        _CONNECTORS[connection_id] = _new_connection(base, connection_id, label)
+    return _CONNECTORS[connection_id]
+
+
+def remove_connection(connection_id: str) -> None:
+    """Delete an extra connection: its settings, its credentials and its entry. The first one is cleared
+    with remove_connector_settings instead (the connector itself stays)."""
+    connection = get_connector(connection_id)
+    if connection is None or connection.is_first_connection:
+        raise ValueError(f"Unknown connection {connection_id}")
+    remove_connector_settings(connection_id)
+
+    def apply(current: Any) -> dict[str, Any]:
+        data = current if isinstance(current, dict) else {}
+        rows = data.get(CONNECTIONS_KEY) if isinstance(data.get(CONNECTIONS_KEY), dict) else {}
+        rows.pop(connection_id, None)
+        data[CONNECTIONS_KEY] = rows
+        return data
+
+    locked_json_update(CONNECTORS_FILE, apply)
+    _forget_settings_cache()
+    with _LOCK:
+        _CONNECTORS.pop(connection_id, None)
 
 
 def load_failures() -> dict[str, str]:
@@ -1587,7 +1757,10 @@ def get_connector(connector_id: str) -> Connector | None:
 
 
 def all_connectors() -> list[Connector]:
-    return sorted(discover().values(), key=lambda c: (c.manifest.category, c.manifest.connector_id))
+    return sorted(
+        discover().values(),
+        key=lambda c: (c.manifest.category, c.manifest.connector_id, not c.is_first_connection, c.connection_id),
+    )
 
 
 def tls_verification_off() -> list[str]:
