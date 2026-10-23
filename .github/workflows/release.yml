@@ -46,7 +46,7 @@ jobs:
           note "go-winres versions" versions.txt
           if ! go run github.com/tc-hib/go-winres@v0.3.3 simply --arch amd64 --icon ../resources/icon-256.png --manifest gui \
             --file-version "$v.0" --product-version "$v.0" --file-description "NodeWatch" --product-name "NodeWatch" \
-            --company-name "BWN" --copyright "BWN" --original-filename "NodeWatch.exe" --out rsrc > winres.txt 2>&1; then
+            --copyright "BWN" --original-filename "NodeWatch.exe" --out rsrc > winres.txt 2>&1; then
             note "go-winres failed" winres.txt
             go run github.com/tc-hib/go-winres@v0.3.3 help simply > help.txt 2>&1 || true
             note "go-winres help" help.txt
@@ -109,7 +109,7 @@ jobs:
         run: |
           $exe = Join-Path $env:NW_INSTALLED "NodeWatch\NodeWatch.exe"
           $vi = (Get-Item $exe).VersionInfo
-          Write-Output "::notice title=launcher version::$($vi.ProductName) $($vi.ProductVersion) / file $($vi.FileVersion) / $($vi.CompanyName)"
+          Write-Output "::notice title=launcher version::$($vi.ProductName) $($vi.ProductVersion) / file $($vi.FileVersion) / $($vi.LegalCopyright)"
           Add-Type -AssemblyName System.Drawing
           $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($exe)
           Write-Output "::notice title=launcher icon::$($icon.Width)x$($icon.Height)"
