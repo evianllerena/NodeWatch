@@ -56,7 +56,7 @@ function Snap-Reg {
   }
   return $rows
 }
-function Diff($before, $after, $name) {
+function Write-Diff($before, $after, $name) {
   $added = $after | Where-Object { $before -notcontains $_ }
   $removed = $before | Where-Object { $after -notcontains $_ }
   @("ADDED ($($added.Count))") + $added + @("", "REMOVED ($($removed.Count))") + $removed | Set-Content (Join-Path $Out $name)
@@ -87,7 +87,7 @@ function Record-UI($name) {
 # 0. Interactive run on a clean machine: windows and texts shown, nothing clicked
 $f00 = Snap-Files
 Record-UI "0-interactive-clean-ui.txt"
-Diff $f00 (Snap-Files) "0-interactive-clean-files.txt"
+Write-Diff $f00 (Snap-Files) "0-interactive-clean-files.txt"
 
 # 1. Silent install (/S)
 $f0 = Snap-Files; $r0 = Snap-Reg; $p0 = Procs
@@ -95,9 +95,9 @@ $p = Start-Process -FilePath $Installer -ArgumentList "/S" -PassThru -Wait
 "silent install exit code: $($p.ExitCode)" | Set-Content (Join-Path $Out "1-silent-exit.txt")
 Start-Sleep -Seconds 15
 $f1 = Snap-Files; $r1 = Snap-Reg; $p1 = Procs
-Diff $f0 $f1 "1-silent-files.txt"
-Diff $r0 $r1 "1-silent-registry.txt"
-Diff $p0 $p1 "1-silent-processes.txt"
+Write-Diff $f0 $f1 "1-silent-files.txt"
+Write-Diff $r0 $r1 "1-silent-registry.txt"
+Write-Diff $p0 $p1 "1-silent-processes.txt"
 Get-CimInstance Win32_Process | Where-Object { $_.Name -match "NodeWatch|python|msedge|nwhost" } | Stop-Process -Force -ErrorAction SilentlyContinue
 Get-Process | Where-Object { $_.Name -match "NodeWatch|python|nwhost" } | Stop-Process -Force -ErrorAction SilentlyContinue
 
@@ -154,7 +154,7 @@ Start-Sleep -Seconds 10
 $pages += $(if ($p.HasExited) { "installer exited with $($p.ExitCode)" } else { "installer still running" })
 $pages += "processes now: " + ((Get-CimInstance Win32_Process | Where-Object { $_.Name -match "NodeWatch|python|nwhost|msedge" } | ForEach-Object { $_.Name }) -join ", ")
 $pages | Set-Content (Join-Path $Out "5-wizard-pages.txt")
-Diff $f5 (Snap-Files) "5-wizard-files.txt"
-Diff $r5 (Snap-Reg) "5-wizard-registry.txt"
+Write-Diff $f5 (Snap-Files) "5-wizard-files.txt"
+Write-Diff $r5 (Snap-Reg) "5-wizard-registry.txt"
 Get-Process | Where-Object { $_.Name -match "NodeWatch|python|nwhost|msedge" } | Stop-Process -Force -ErrorAction SilentlyContinue
 if (-not $p.HasExited) { $p | Stop-Process -Force }
