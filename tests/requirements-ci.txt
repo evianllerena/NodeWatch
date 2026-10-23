@@ -1,0 +1,23 @@
+# Exact versions of the Python packages shipped in v0.10.42, read from the bundled
+# runtime/site-packages/*.dist-info folders. Used only by CI so the tests run against the same
+# library versions the app ships with. opentelemetry-api is shipped but never imported, so it is left out.
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+cffi==2.1.1
+click==8.5.0
+cryptography==50.0.1
+fastapi==0.142.2
+h11==0.16.0
+idna==3.20
+jinja2==3.1.6
+markupsafe==3.0.4
+pyasn1==0.6.4
+pycparser==3.11
+pydantic==2.14.1
+pydantic-core==2.50.1
+pysnmp==7.1.29
+starlette==1.7.0
+typing-extensions==4.16.0
+typing-inspection==0.4.4
+uvicorn==0.54.0

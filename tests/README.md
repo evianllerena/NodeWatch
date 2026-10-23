@@ -29,3 +29,7 @@ Review the diff, and record the reason in the plan's change log.
 
 Development note (2026-10-22): the suite was built from the recovered v0.10.42 source and run on Python 3.13
 with pydantic 2.13.5. Run it on the bundled 3.12.15 runtime (bundle target) before relying on it for a release.
+
+CI: `.github/workflows/tests.yml` runs the suite on every push with Python 3.12 and the exact package versions
+listed in `tests/requirements-ci.txt` (copied from the shipped runtime). It runs the source target only; the
+bundle target needs the Windows or macOS bundled interpreter and is run on those machines.
