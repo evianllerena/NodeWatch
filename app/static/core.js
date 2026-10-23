@@ -1,5 +1,5 @@
-const FRONTEND_VERSION = '0.10.42';
-const FRONTEND_BUILD = '2026-10-20-v0.10.42-wall-keeps-place';
+const FRONTEND_VERSION = '0.10.43';
+const FRONTEND_BUILD = '0.10.43-source';
 window.MistTools = window.MistTools || {};
 
 const NODEWATCH_WRITE_TOKEN = document.querySelector('meta[name="nodewatch-write-token"]')?.content || '';

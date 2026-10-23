@@ -1,22 +1,27 @@
-"""Build pilot releases from the shipped v0.10.42 builds plus the repository's app/ source.
+"""Build releases from the repository plus the shipped v0.10.42 programs that have no source here.
 
-The launchers, installer, runtimes and window binaries stay exactly the shipped v0.10.42 binaries. Only three
-things change, and each is checked:
+The version comes from one place, ``app/core/version.py`` (APP_VERSION); every release gets a build id
+``<date>-v<version>-pilot-<commit>``. Both are written everywhere a NodeWatch part checks or shows them:
 
 1. ``_internal/app/`` (and the shipped ``docs/`` files) take the repository's content; files listed in
-   tests/baselines/removed_files.json are dropped, new app files are added.
-2. ``app/core/version.py`` gets a new APP_BUILD of the same length, and ``integrity.json`` is regenerated with the
-   v0.10.42 rules (every file listed except README.md, integrity.json and docs/).
-3. The launcher binary has its pinned integrity.json hash and its build string replaced, byte for byte
-   (same length, each must occur the expected number of times).
+   tests/baselines/removed_files.json are dropped, new app files are added. The build id replaces the repo's
+   placeholder APP_BUILD in every app file that carries it (version.py and static/core.js at least).
+2. ``integrity.json`` is regenerated with the v0.10.42 rules (every file listed except README.md, integrity.json
+   and docs/).
+3. Windows launcher: compiled from ``release/windows-launcher`` with the version, build id and the new manifest
+   hash written into its constants (Go 1.24.7, the same flags as v0.10.42). A ``*.syso`` resource file in that
+   folder (icon and version details, made by the workflow) is linked in.
+4. Installer and macOS launcher (shipped v0.10.42 programs): their version text and, for the launcher, the build id
+   and manifest hash are replaced in place, so the version must stay 7 characters (0.10.xx).
 
 Windows: the payload zip is rebuilt with unchanged entries copied as they were, and padded to its original size
-so it drops into the installer at the same offset; nothing else in the installer changes.
+so it drops into the installer at the same offset.
 macOS: works on an unpacked .app folder; the workflow re-signs (ad hoc) and zips it with macOS tools.
 
     python tools/build_release.py windows --installer <shipped.exe> --out <new.exe> --build <id>
     python tools/build_release.py macos --app <NodeWatch.app folder> --build <id>
     python tools/build_release.py build-id            # prints a build id for this commit
+    python tools/build_release.py version             # prints APP_VERSION
 
 Standard library only.
 """
@@ -28,9 +33,12 @@ import datetime as dt
 import hashlib
 import json
 import re
+import os
+import shutil
 import struct
 import subprocess
 import sys
+import tempfile
 import zlib
 from pathlib import Path
 
@@ -40,10 +48,20 @@ SHIPPED_VERSION = "0.10.42"
 
 
 # --------------------------------------------------------------------------- shared rules
+def repo_version() -> tuple[str, str]:
+    """(APP_VERSION, APP_BUILD placeholder) from app/core/version.py, the one place the version is set."""
+    text = (REPO / "app" / "core" / "version.py").read_text("utf-8")
+    version = re.search(r'^APP_VERSION = "([^"]+)"', text, re.M).group(1)
+    build = re.search(r'^APP_BUILD = "([^"]+)"', text, re.M).group(1)
+    if not re.fullmatch(r"0\.10\.\d\d", version):
+        raise SystemExit(f"APP_VERSION {version!r}: the shipped installer and macOS launcher take a 7-character version (0.10.xx)")
+    return version, build
+
+
 def build_id() -> str:
     sha = subprocess.run(["git", "-C", str(REPO), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout
     day = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d")
-    bid = f"{day}-v{SHIPPED_VERSION}-pilot-{sha.strip()[:10]}"
+    bid = f"{day}-v{repo_version()[0]}-pilot-{sha.strip()[:10]}"
     assert len(bid) == len(SHIPPED_BUILD), (bid, len(bid))
     return bid
 
@@ -91,15 +109,15 @@ def new_internal_files(current: dict[str, bytes], build: str) -> tuple[dict[str,
         if rel.startswith("docs/") and (REPO / rel).is_file() and (REPO / rel).read_bytes() != current[rel]:
             new[rel] = (REPO / rel).read_bytes()
             report.append(f"changed  {rel}")
-    version = new["app/core/version.py"].decode("utf-8")
-    if f'APP_BUILD = "{SHIPPED_BUILD}"' not in version or f'APP_VERSION = "{SHIPPED_VERSION}"' not in version:
-        raise SystemExit("app/core/version.py no longer holds the v0.10.42 version and build")
+    version, placeholder = repo_version()
+    if f"const FRONTEND_VERSION = '{version}';" not in new["app/static/core.js"].decode("utf-8"):
+        raise SystemExit(f"app/static/core.js FRONTEND_VERSION is not {version} (set both with the version)")
     # The build id is written in the backend (version.py) and the page (static/core.js FRONTEND_BUILD, compared
     # with the backend's on every status read). Replace it in every app file that carries it, and require both.
     stamped = []
     for rel in sorted(new):
-        if rel.startswith("app/") and not rel.startswith("app/bin/") and SHIPPED_BUILD.encode() in new[rel]:
-            new[rel] = new[rel].replace(SHIPPED_BUILD.encode(), build.encode())
+        if rel.startswith("app/") and not rel.startswith("app/bin/") and placeholder.encode() in new[rel]:
+            new[rel] = new[rel].replace(placeholder.encode(), build.encode())
             stamped.append(rel)
     if not {"app/core/version.py", "app/static/core.js"} <= set(stamped):
         raise SystemExit(f"build id not found where expected; stamped: {stamped}")
@@ -115,12 +133,53 @@ def new_internal_files(current: dict[str, bytes], build: str) -> tuple[dict[str,
 
 
 def patch_launcher(binary: bytes, old_manifest_sha: str, new_manifest_sha: str, build: str, copies: int) -> bytes:
-    for old, new in ((old_manifest_sha, new_manifest_sha), (SHIPPED_BUILD, build)):
+    """Shipped macOS launcher: manifest hash, build id and version text (one copy per architecture)."""
+    version = repo_version()[0]
+    for old, new in ((old_manifest_sha, new_manifest_sha), (SHIPPED_BUILD, build), (SHIPPED_VERSION, version)):
         found = binary.count(old.encode())
         if found != copies:
             raise SystemExit(f"launcher holds {found} copies of {old!r}, expected {copies}")
         binary = binary.replace(old.encode(), new.encode())
     return binary
+
+
+def compile_windows_launcher(manifest_sha: str, build: str) -> bytes:
+    """release/windows-launcher with this release's constants, built exactly like v0.10.42 (Go 1.24.7)."""
+    version = repo_version()[0]
+    go_version = subprocess.run(["go", "env", "GOVERSION"], capture_output=True, text=True, check=True).stdout.strip()
+    if go_version != "go1.24.7":
+        raise SystemExit(f"the Windows launcher is built with go1.24.7 (as v0.10.42), not {go_version}")
+    with tempfile.TemporaryDirectory() as tmp:
+        src = Path(tmp) / "launcher"
+        shutil.copytree(REPO / "release" / "windows-launcher", src)
+        main = src / "main.go"
+        text = main.read_text("utf-8")
+        for name, value in (("appVersion", version), ("appBuild", build), ("manifestSHA256", manifest_sha)):
+            text, n = re.subn(rf'^(\t{name}\s*=\s*")[^"]*(")', rf"\g<1>{value}\g<2>", text, flags=re.M)
+            if n != 1:
+                raise SystemExit(f"constant {name} not found exactly once in release/windows-launcher/main.go")
+        main.write_text(text, "utf-8")
+        out = Path(tmp) / "NodeWatch.exe"
+        env = dict(os.environ, GOOS="windows", GOARCH="amd64", CGO_ENABLED="0")
+        subprocess.run(["go", "build", "-trimpath", "-ldflags=-s -w -H windowsgui", "-o", str(out), "."],
+                       cwd=src, env=env, check=True)
+        data = out.read_bytes()
+    for needle in (version, build, manifest_sha):
+        if needle.encode() not in data:
+            raise SystemExit(f"built launcher does not contain {needle!r}")
+    return data
+
+
+def stamp_installer(exe: bytes, start: int, size: int) -> tuple[bytes, int]:
+    """Version text of the shipped installer (outside its payload), ASCII and UTF-16. Same length, so in place."""
+    version = repo_version()[0]
+    head, payload, tail = exe[:start], exe[start:start + size], exe[start + size:]
+    count = 0
+    for old, new in ((SHIPPED_VERSION.encode(), version.encode()),
+                     (SHIPPED_VERSION.encode("utf-16-le"), version.encode("utf-16-le"))):
+        count += head.count(old) + tail.count(old)
+        head, tail = head.replace(old, new), tail.replace(old, new)
+    return head + payload + tail, count
 
 
 # --------------------------------------------------------------------------- Windows
@@ -202,7 +261,7 @@ def build_windows(installer: Path, out: Path, build: str) -> None:
     current = {e["name"][len(prefix):]: inflate(e) for e in entries if e["name"].startswith(prefix) and not e["name"].endswith("/")}
     launcher_entry = next(e for e in entries if e["name"] == "NodeWatch/NodeWatch.exe")
     new, report = new_internal_files(current, build)
-    launcher = patch_launcher(inflate(launcher_entry), sha256(current["integrity.json"]), sha256(new["integrity.json"]), build, 1)
+    launcher = compile_windows_launcher(sha256(new["integrity.json"]), build)
 
     kept = []
     for e in entries:
@@ -219,10 +278,14 @@ def build_windows(installer: Path, out: Path, build: str) -> None:
         kept.append({**template, "name": prefix + rel, "extra": b"", "comment": b"", "data": new[rel]})
     payload = write_payload(kept, size)
     result = exe[:start] + payload + exe[start + size:]
+    result, stamped = stamp_installer(result, start, size)
+    if stamped < 4:
+        raise SystemExit(f"installer version text found {stamped} times, expected at least 4")
     assert len(result) == len(exe)
     out.write_bytes(result)
     print("\n".join(report))
-    print(f"launcher patched: manifest {sha256(new['integrity.json'])}, build {build}")
+    print(f"launcher built from source: version {repo_version()[0]}, manifest {sha256(new['integrity.json'])}, build {build}")
+    print(f"installer version text replaced in {stamped} places")
     print(f"installer: {out} ({len(result)} bytes, sha256 {sha256(result)})")
 
 
@@ -241,6 +304,11 @@ def build_macos(app: Path, build: str) -> None:
     launcher_path = app / "Contents" / "MacOS" / "NodeWatch"
     launcher_path.write_bytes(patch_launcher(launcher_path.read_bytes(), sha256(current["integrity.json"]),
                                              sha256(new["integrity.json"]), build, 2))  # universal: arm64 + x86_64
+    plist = app / "Contents" / "Info.plist"
+    text = plist.read_text("utf-8")
+    if text.count(f"<string>{SHIPPED_VERSION}</string>") != 2:
+        raise SystemExit("Info.plist does not hold the v0.10.42 version twice")
+    plist.write_text(text.replace(f"<string>{SHIPPED_VERSION}</string>", f"<string>{repo_version()[0]}</string>"), "utf-8")
     print("\n".join(report))
     print(f"launcher patched: manifest {sha256(new['integrity.json'])}, build {build}")
 
@@ -256,9 +324,12 @@ def main() -> int:
     m.add_argument("--app", type=Path, required=True)
     m.add_argument("--build", required=True)
     sub.add_parser("build-id")
+    sub.add_parser("version")
     args = ap.parse_args()
     if args.cmd == "build-id":
         print(build_id())
+    elif args.cmd == "version":
+        print(repo_version()[0])
     elif args.cmd == "windows":
         build_windows(args.installer, args.out, args.build)
     else:

@@ -5,7 +5,7 @@ processes it starts, window titles (a message box shows as a title), which port 
 and the NodeWatch log files under %LOCALAPPDATA%\NodeWatch. Everything is then stopped.
 Results are printed as GitHub annotations, because run logs are not readable from outside.
 #>
-param([Parameter(Mandatory)] [string] $Root, [int] $Seconds = 120, [string] $ExpectBuild = "")
+param([Parameter(Mandatory)] [string] $Root, [int] $Seconds = 120, [string] $ExpectBuild = "", [string] $ExpectWindow = "")
 
 $ErrorActionPreference = "Continue"
 function Note([string] $title, [string] $text) {
@@ -54,6 +54,7 @@ while ($sw.Elapsed.TotalSeconds -lt $Seconds) {
         $timeline.Add(("{0,5:N1}s launcher exited code={1}" -f $sw.Elapsed.TotalSeconds, $p.ExitCode))
     }
     if ($answered -and $sw.Elapsed.TotalSeconds -gt 45) { break }
+    if ($ExpectWindow -and ($timeline | Where-Object { $_ -match [regex]::Escape("'$ExpectWindow'") })) { Start-Sleep -Seconds 3; break }
     Start-Sleep -Milliseconds 1000
 }
 
@@ -88,6 +89,10 @@ if (Test-Path $data) {
 # Stop everything this run started.
 Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and ($_.ExecutablePath -like "$Root*" -or $_.ExecutablePath -like "$data*") } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+if ($ExpectWindow -and -not ($timeline | Where-Object { $_ -match [regex]::Escape("'$ExpectWindow'") })) {
+    Write-Output "::error title=parity::no window titled '$ExpectWindow' appeared"
+    exit 1
+}
 if ($ExpectBuild -and -not ($answered -and $answered.Contains("`"build`":`"$ExpectBuild`""))) {
     Write-Output "::error title=parity::the backend did not answer as build $ExpectBuild"
     exit 1
