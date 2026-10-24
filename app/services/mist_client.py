@@ -1037,9 +1037,15 @@ class MistClient:
         return result if isinstance(result, dict) else {}
 
     def update_site_device(self, site_id: str, device_id: str, body: dict) -> Any:
-        return self.put(
-            f"/api/v1/sites/{_path_id(site_id, 'site ID')}/devices/{_path_id(device_id, 'device ID')}", body
+        # A device config write changes reads scoped to this site and the org-level inventory/stats; it does
+        # not change other sites, the id->name lookups or past events. Invalidate that superset (v0.10.53,
+        # report perf #2) instead of clear_cache(), which also wiped the lookup cache and the event buffer.
+        site, device = _path_id(site_id, "site ID"), _path_id(device_id, "device ID")
+        result = self._request(
+            "PUT", f"/api/v1/sites/{site}/devices/{device}", body=body, invalidate_all_cache=False
         )
+        self.clear_cache_matching(f"/sites/{site}/", f"/orgs/{self._org}/")
+        return result
 
     def search_org_alarms(self, *, fresh: bool = False, duration: str | None = None, limit: int = 10_000) -> list[dict]:
         path = f"/api/v1/orgs/{self._org}/alarms/search"
@@ -1528,10 +1534,13 @@ class MistClient:
 
     def bounce_device_port(self, site_id: str, device_id: str, ports: list[str]) -> Any:
         """Trigger Mist's documented Bounce Device Port utility."""
+        # A port bounce restarts a port; it changes no cached config/inventory/stats, so it must not clear the
+        # cache (v0.10.53, report perf #2). Live port state is read fresh by the operations page afterwards.
         return self._request(
             "POST",
             f"/api/v1/sites/{_path_id(site_id, 'site ID')}/devices/{_path_id(device_id, 'device ID')}/bounce_port",
             body={"ports": ports},
+            invalidate_all_cache=False,
         )
 
     def cable_test_from_switch(self, site_id: str, device_id: str, port_id: str) -> Any:
@@ -1541,10 +1550,13 @@ class MistClient:
         channel; this application records the accepted command and subsequent device/port
         state without pretending an asynchronous stream was returned synchronously.
         """
+        # The cable test reads a cable; it changes no cached config/inventory, so it must not clear the cache
+        # (v0.10.53, report perf #2).
         return self._request(
             "POST",
             f"/api/v1/sites/{_path_id(site_id, 'site ID')}/devices/{_path_id(device_id, 'device ID')}/cable_test",
             body={"port": port_id},
+            invalidate_all_cache=False,
         )
 
     def search_org_nac_clients_any(

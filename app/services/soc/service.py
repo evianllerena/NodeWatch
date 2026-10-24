@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import threading
 import time
+from collections import OrderedDict
 from typing import Any
 
 from app.integrations.contracts import (
@@ -28,7 +29,11 @@ WORLD = [[code, row[1], row[2]] for code, row in COUNTRIES.items()]
 
 STORE = EventStore()
 COLLECTOR = Collector(STORE)
-_cache: dict[tuple, tuple[float, Any]] = {}
+# v0.10.53 (report perf #9): a small LRU instead of a single entry, so toggling the site filter or time window
+# and back reuses the recent dataset instead of rebuilding it. Stale keys (time bucket / store version in the
+# key) fall out as misses; the cap only bounds memory.
+_CACHE_MAX = 8
+_cache: "OrderedDict[tuple, tuple[float, Any]]" = OrderedDict()
 _cache_lock = threading.Lock()
 
 
@@ -102,6 +107,7 @@ def _dataset(window: str, site: str, sample: bool) -> dict[str, Any]:
     with _cache_lock:
         hit = _cache.get(key)
         if hit:
+            _cache.move_to_end(key)
             return hit[1]
     if sample:
         raw = [e for e in demo.events(hours=168, now=now) if e["timestamp"] >= now - span]  # one week, sliced
@@ -125,8 +131,10 @@ def _dataset(window: str, site: str, sample: bool) -> dict[str, Any]:
         "vendor": vendor,
     }
     with _cache_lock:
-        _cache.clear()
         _cache[key] = (now, data)
+        _cache.move_to_end(key)
+        while len(_cache) > _CACHE_MAX:
+            _cache.popitem(last=False)
     return data
 
 

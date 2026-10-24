@@ -410,14 +410,18 @@ def _incident_summary(iid: str, kind: str, rows: list[tuple[Alert, dict]], site_
     sev = min((a.severity for a in members), key=lambda s: SEV_RANK.get(s, 9))
     srcs = sorted({a.source for a in members})
     names = list(dict.fromkeys(a.device_name for a in members if a.device_name))
+    # Client-side filter text (dashboard.js site/query/needle filters). v0.10.53 (report perf #7): this used to
+    # carry up to 400 names + 400 MACs capped at 6,000 chars, sent for every incident. Titles and sites (the
+    # common filters) are always kept; names/MACs are capped at 150 each and the whole blob at 2,500 chars, which
+    # covers realistic clusters while cutting the dashboard payload substantially.
     search = " ".join(
         dict.fromkeys(
             [title, members[0].type, members[0].title]
             + list(sites)
-            + names[:400]
-            + [a.vendor.get("mac", "") for a in members[:400]]
+            + names[:150]
+            + [a.vendor.get("mac", "") for a in members[:150]]
         )
-    ).lower()[:6000]
+    ).lower()[:2500]
     ackable = any(
         sources.get(a.source, {}).get("can_ack") and a.vendor.get("alarm_ids") and not a.acknowledged for a in members
     )

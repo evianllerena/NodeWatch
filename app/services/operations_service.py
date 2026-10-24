@@ -1298,11 +1298,16 @@ def _alarm_issues(rows: list[dict], site_id: str | None) -> list[dict]:
     return out
 
 
-_OVERVIEW_TTL = 60.0
+# v0.10.53 (report perf #5): the org-wide port overview is expensive (an org port search over up to 20,000
+# ports). Keep each build longer, and once it is stale serve the last one at once while one background thread
+# refreshes it, so no page waits for a rebuild. A build older than TTL + grace is rebuilt in-line.
+_OVERVIEW_TTL = 120.0
+_OVERVIEW_STALE_GRACE = 600.0
 _OVERVIEW_PORT_LIMIT = 20_000
 _OVERVIEW_ISSUE_LIMIT = 1000
 _overview_cache: dict[str, tuple[float, dict]] = {}
 _overview_lock = threading.Lock()
+_overview_refreshing: set[str] = set()
 
 
 def _device_id_for_mac(mac: str) -> str:
@@ -1310,7 +1315,9 @@ def _device_id_for_mac(mac: str) -> str:
     return f"00000000-0000-0000-1000-{mac}" if re.fullmatch(r"[0-9a-f]{12}", mac or "") else ""
 
 
-def port_overview(site_id: str | None = None, client: MistClient | None = None, *, fresh: bool = False) -> dict:
+def port_overview(
+    site_id: str | None = None, client: MistClient | None = None, *, fresh: bool = False, _force_build: bool = False
+) -> dict:
     """Most important switch-port problems for the org (or one site), ranked by severity.
 
     Two Mist reads: the org (or site) port-stats search and the org alarm search (shared,
@@ -1319,11 +1326,17 @@ def port_overview(site_id: str | None = None, client: MistClient | None = None, 
     site_id = (site_id or "").strip() or None
     key = site_id or "*"
     now = time.time()
-    if not fresh:
+    if not fresh and not _force_build:
         with _overview_lock:
             hit = _overview_cache.get(key)
-        if hit and hit[0] > now:
-            return {**hit[1], "cached": True}
+        if hit:
+            built_at, value = hit
+            age = now - built_at
+            if age < _OVERVIEW_TTL:
+                return {**value, "cached": True}
+            if age < _OVERVIEW_TTL + _OVERVIEW_STALE_GRACE:
+                _overview_refresh_in_background(key, site_id, client)
+                return {**value, "cached": True, "stale": True}
     client = client or get_mist_client()
     if fresh:
         clearer = getattr(client, "clear_cache_matching", None)
@@ -1481,7 +1494,28 @@ def port_overview(site_id: str | None = None, client: MistClient | None = None, 
         ),
         "warnings": warnings,
     }
-    if not failed:  # never keep a failed read for the TTL
+    if not failed:  # never keep a failed read (store the build-completion time; read side computes its age)
         with _overview_lock:
-            _overview_cache[key] = (now + _OVERVIEW_TTL, result)
+            _overview_cache[key] = (time.time(), result)
     return result
+
+
+def _overview_refresh_in_background(key: str, site_id: str | None, client: MistClient | None) -> None:
+    """Rebuild one overview off the request thread (report perf #5). One refresh per key at a time; never raises."""
+    from app.core.freshness import in_context
+
+    with _overview_lock:
+        if key in _overview_refreshing:
+            return
+        _overview_refreshing.add(key)
+
+    def run() -> None:
+        try:
+            port_overview(site_id, client, fresh=False, _force_build=True)
+        except Exception:  # noqa: BLE001 - a background refresh failure just keeps the stale value
+            pass
+        finally:
+            with _overview_lock:
+                _overview_refreshing.discard(key)
+
+    threading.Thread(target=in_context(run), name=f"overview-refresh-{key}", daemon=True).start()

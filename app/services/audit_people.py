@@ -104,12 +104,16 @@ def _actor_dict(actor: Any, label: str) -> dict[str, Any]:
 _MEMO_SECONDS = 60.0
 _MEMO: dict[tuple, tuple[float, dict]] = {}
 _MEMO_LOCK = threading.Lock()
+# v0.10.53 (report perf #4): one lock per key, so a build for one (range, site, device) no longer blocks a
+# build for a different one. Callers of the same key still share a single build (single-flight).
+_FLIGHT_LOCKS: dict[tuple, threading.Lock] = {}
 
 
 def clear_cache() -> None:
     """Forget memoised results (the page's Refresh button)."""
     with _MEMO_LOCK:
         _MEMO.clear()
+        _FLIGHT_LOCKS.clear()
 
 
 def collect(duration: str = "7d", *, site_key: str | None = None, device_key: str | None = None) -> dict[str, Any]:
@@ -119,15 +123,29 @@ def collect(duration: str = "7d", *, site_key: str | None = None, device_key: st
     one build. ``device_key`` keeps only entries that touched that device; sources whose ``list_audit``
     accepts ``device_key`` filter before parsing (Mist), others are filtered afterwards."""
     key = (_hours(duration), site_key or "", device_key or "")
-    now = time.monotonic()
-    with _MEMO_LOCK:  # also single-flight: concurrent callers wait for one build
-        hit = _MEMO.get(key)
-        if hit and now - hit[0] < _MEMO_SECONDS:
-            return hit[1]
+
+    def fresh_hit() -> dict | None:
+        with _MEMO_LOCK:
+            hit = _MEMO.get(key)
+            return hit[1] if hit and time.monotonic() - hit[0] < _MEMO_SECONDS else None
+
+    cached = fresh_hit()
+    if cached is not None:
+        return cached
+    # Build under this key's own lock only: a second caller of the same key waits and reuses the build;
+    # callers of other keys run in parallel.
+    with _MEMO_LOCK:
+        flight = _FLIGHT_LOCKS.setdefault(key, threading.Lock())
+    with flight:
+        again = fresh_hit()  # filled while we waited for the flight
+        if again is not None:
+            return again
         result = _collect(duration, site_key=site_key, device_key=device_key)
-        _MEMO[key] = (time.monotonic(), result)
-        for old in [k for k, (at, _) in _MEMO.items() if time.monotonic() - at >= _MEMO_SECONDS]:
-            _MEMO.pop(old, None)
+        with _MEMO_LOCK:
+            _MEMO[key] = (time.monotonic(), result)
+            for old in [k for k, (at, _) in _MEMO.items() if time.monotonic() - at >= _MEMO_SECONDS]:
+                _MEMO.pop(old, None)
+                _FLIGHT_LOCKS.pop(old, None)
         return result
 
 

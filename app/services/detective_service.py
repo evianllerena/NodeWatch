@@ -671,27 +671,17 @@ def search_detective(query: str, site_id: str | None = None) -> dict:
             "inventory": lambda: client.search_org_inventory(site_id=site_id, text=wildcard, limit=source_limit),
         }
     else:
-        # Mist ``text`` matching is whole-token; a trailing ``*`` makes it a prefix
-        # match so "kend" also finds "kendall-ap-01" and "jsm" finds "jsmith". Both
-        # variants run and are merged/deduplicated, so exact matches never disappear.
+        # Mist ``text`` matching is whole-token; a trailing ``*`` makes it a prefix match so "kend" also finds
+        # "kendall-ap-01" and "jsm" finds "jsmith". A prefix match on ``value*`` already returns every exact match
+        # of ``value`` (the token "kend" starts with "kend"), so v0.10.53 (report perf #8) runs the prefix form
+        # only, halving the Mist calls from eight to four; exact matches are still included.
         prefix = value if value.endswith("*") else f"{value}*"
         tasks = {
-            "wireless": lambda: client.search_org_wireless_clients(**kwargs, text=value),
-            "wired": lambda: client.search_org_wired_clients(**kwargs, text=value),
-            "inventory": lambda: client.search_org_inventory(site_id=site_id, text=value, limit=source_limit),
-            "nac": lambda: client.search_org_nac_clients(**kwargs, text=value),
+            "wireless": lambda: client.search_org_wireless_clients(**kwargs, text=prefix),
+            "wired": lambda: client.search_org_wired_clients(**kwargs, text=prefix),
+            "inventory": lambda: client.search_org_inventory(site_id=site_id, text=prefix, limit=source_limit),
+            "nac": lambda: client.search_org_nac_clients(**kwargs, text=prefix),
         }
-        if prefix != value:
-            tasks.update(
-                {
-                    "wireless:prefix": lambda: client.search_org_wireless_clients(**kwargs, text=prefix),
-                    "wired:prefix": lambda: client.search_org_wired_clients(**kwargs, text=prefix),
-                    "inventory:prefix": lambda: client.search_org_inventory(
-                        site_id=site_id, text=prefix, limit=source_limit
-                    ),
-                    "nac:prefix": lambda: client.search_org_nac_clients(**kwargs, text=prefix),
-                }
-            )
 
     fetched: dict[str, list[dict]] = {}
     with ThreadPoolExecutor(max_workers=min(8, max(1, len(tasks)))) as pool:

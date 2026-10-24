@@ -1,0 +1,50 @@
+name: security
+
+# Phase 4: a dependency vulnerability scan (pip-audit) over the versions NodeWatch actually ships, and the
+# vendor-neutrality ratchet run on its own. Runs on every push that touches the dependencies or this file, and
+# weekly so a newly disclosed advisory against a pinned version is caught even without a code change.
+on:
+  push:
+    branches: [main]
+    paths: [requirements.txt, requirements-optional.txt, tests/requirements-ci.txt, .github/workflows/security.yml]
+  schedule:
+    - cron: "17 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pip-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pip-audit
+        run: python -m pip install --quiet pip-audit
+      - name: Scan the shipped pinned versions for known vulnerabilities
+        run: |
+          set -o pipefail
+          # The exact versions the app ships with (read from the bundled dist-info; same file CI tests against).
+          python -m pip_audit --requirement tests/requirements-ci.txt --strict --progress-spinner off \
+            --format columns 2>&1 | tee audit.txt
+          status=${PIPESTATUS[0]}
+          echo "::notice title=pip-audit::$(sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' audit.txt | head -c 3500)"
+          exit $status
+
+  neutrality:
+    # The vendor-name rule: the neutrality ratchet (counts of vendor-specific code may not rise). It also runs in
+    # the full suite; here it is surfaced on its own so a vendor name added to neutral code is an obvious failure.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Vendor-neutrality ratchet
+        run: |
+          set -o pipefail
+          python tests/run.py -k neutrality_ratchet -v 2>&1 | tee ratchet.txt
+          echo "::notice title=neutrality ratchet::$(tail -n 20 ratchet.txt | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' | head -c 3000)"
