@@ -41,8 +41,13 @@
     nwFetchJSON(url, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } }); // core.js
 
   const rows = () => catalog?.connectors || [];
-  const row = (id) => rows().find((c) => c.connector_id === id);
+  // v0.10.59 (N1): cards and per-connection actions are addressed by connection_id — the vendor code for a
+  // first connection, "fortigate-2" etc. for a further one — so two connections of one vendor stay distinct.
+  const cid = (c) => (c && (c.connection_id || c.connector_id)) || '';
+  const row = (id) => rows().find((c) => cid(c) === id) || rows().find((c) => c.connector_id === id);
   const isConnected = (c) => c.state === 'load_failed' || !!c.configured;
+  // Which connectors can hold more than one connection (a second org/firewall/VDOM of the same vendor).
+  const multiCapable = (c) => !c.managed_elsewhere && c.state !== 'load_failed';
 
   // ---- shared bits ---------------------------------------------------------------------------
   // v0.10.32: a Preview connector that works on this network (connected and answering, remembered across
@@ -85,13 +90,25 @@
       actions = `${inv}<span class="muted conn-where">Set up on <strong>${esc(c.settings_location || 'its own settings section')}</strong></span>
         <span class="conn-actions-row"><button type="button" class="btn ghost small" data-act="retest">Re-test</button><button type="button" class="btn secondary small" data-act="goto" data-target="${esc(c.settings_location || '')}">Open settings</button></span>`;
     } else {
+      const removeLabel = c.is_first_connection ? 'Disconnect' : 'Remove connection';
+      // "Add another connection" is offered once per vendor, on its first connection's card.
+      const addAnother =
+        c.is_first_connection && multiCapable(c)
+          ? `<button type="button" class="btn ghost small" data-act="addconn">Add another connection</button>`
+          : '';
       actions = `<label class="conn-switch" title="Use this connection in NodeWatch"><input type="checkbox" data-act="enable"${c.enabled ? ' checked' : ''}><span class="conn-switch-track" aria-hidden="true"></span><span>${c.enabled ? 'On' : 'Off'}</span></label>
-        <span class="conn-actions-row"><button type="button" class="btn ghost small" data-act="disconnect">Disconnect</button><button type="button" class="btn ghost small" data-act="retest">Re-test</button><button type="button" class="btn secondary small" data-act="edit">Edit</button></span>`;
+        <span class="conn-actions-row"><button type="button" class="btn ghost small" data-act="disconnect">${removeLabel}</button><button type="button" class="btn ghost small" data-act="retest">Re-test</button><button type="button" class="btn secondary small" data-act="edit">Edit</button>${addAnother}</span>`;
     }
     const summary = c.setup?.summary || c.description || '';
-    return `<article class="conn-item ${stateCls}" data-connector="${esc(c.connector_id)}" data-ui="Settings &amp; Support › Connections › Connected › ${esc(c.product)}">
+    // A further connection of a vendor shows its label (or its id) so the two cards are told apart.
+    const connLabel = !c.is_first_connection
+      ? `<div class="conn-connlabel" title="This is a separate connection of ${esc(c.product)}">${esc(c.connection_label || c.connection_id)}</div>`
+      : c.connection_label
+        ? `<div class="conn-connlabel">${esc(c.connection_label)}</div>`
+        : '';
+    return `<article class="conn-item ${stateCls}" data-connector="${esc(cid(c))}" data-ui="Settings &amp; Support › Connections › Connected › ${esc(c.product)}">
       <header class="conn-head">
-        <div class="conn-title"><div class="eyebrow">${esc(c.vendor || c.category_label)}</div><h4>${esc(c.product)}</h4></div>
+        <div class="conn-title"><div class="eyebrow">${esc(c.vendor || c.category_label)}</div><h4>${esc(c.product)}</h4>${connLabel}</div>
         <div class="conn-badges">${badges(c)}${stateBadge(c)}</div>
       </header>
       <p class="conn-desc">${esc(summary)}</p>
@@ -127,7 +144,9 @@
         String(a.product).localeCompare(String(b.product)),
     );
     const connected = sorted.filter(isConnected);
-    const available = sorted.filter((c) => !isConnected(c));
+    // The Available catalog lists vendors to connect — one tile per vendor. A not-yet-configured *extra*
+    // connection (is_first_connection === false) is mid-setup, not a catalog entry, so it is not shown here.
+    const available = sorted.filter((c) => !isConnected(c) && c.is_first_connection !== false);
     root.innerHTML = `
       <section class="conn-section" data-ui="Settings &amp; Support › Connections › Connected">
         <h4 class="conn-group-title">Connected <span class="conn-count">${connected.length}</span></h4>
@@ -195,7 +214,8 @@
 
   function replaceRow(r) {
     if (!catalog || !r || !r.connector_id) return;
-    catalog.connectors = catalog.connectors.map((c) => (c.connector_id === r.connector_id ? r : c));
+    const key = cid(r);
+    catalog.connectors = catalog.connectors.map((c) => (cid(c) === key ? r : c));
   }
 
   async function refreshCapabilities() {
@@ -224,16 +244,25 @@
     if (action === 'edit') return openWizard(id, 2, 'edit');
     if (action === 'retest') return openWizard(id, 3, 'retest');
     if (action === 'goto') return gotoSection(el.dataset.target || '');
+    if (action === 'addconn') return showAddForm(c, el);
+    if (action === 'addconn-cancel') {
+      el.closest('[data-addform]')?.remove();
+      return;
+    }
+    if (action === 'addconn-create') return createConnection(c, el);
     if (action === 'disconnect') {
-      if (
-        !confirm(
-          `Disconnect ${c.product}? Its settings and saved credentials are removed from this computer.`,
-        )
-      )
-        return;
+      const name = c.is_first_connection
+        ? c.product
+        : `${c.product}${c.connection_label ? ` (“${c.connection_label}”)` : ''}`;
+      const msg = c.is_first_connection
+        ? `Disconnect ${name}? Its settings and saved credentials are removed from this computer.`
+        : `Remove this ${name} connection? Its settings and saved credentials are removed from this computer. The other ${c.product} connection is left as it is.`;
+      if (!confirm(msg)) return;
       try {
         const res = await call(`${API}/${encodeURIComponent(id)}`, { method: 'DELETE' });
-        replaceRow(res.connector);
+        // Removing an extra connection drops its card entirely; a first connection is cleared but kept.
+        if (!c.is_first_connection) catalog.connectors = catalog.connectors.filter((x) => cid(x) !== id);
+        else replaceRow(res.connector);
         render();
         await refreshCapabilities();
       } catch (err) {
@@ -257,6 +286,41 @@
       } finally {
         el.disabled = false;
       }
+    }
+  }
+
+  // ---- add another connection ----------------------------------------------------------------
+  // A small inline form (no blocking dialog) to name a second connection of an already-connected vendor.
+  function showAddForm(c, el) {
+    const foot = el.closest('.conn-foot');
+    if (!foot || foot.querySelector('[data-addform]')) return;
+    const form = document.createElement('div');
+    form.className = 'conn-addform';
+    form.setAttribute('data-addform', '1');
+    form.innerHTML = `<label class="conn-addform-label"><span class="connwiz-sr">Name this connection</span>
+        <input type="text" data-addlabel maxlength="80" autocomplete="off" placeholder="Name this ${esc(c.product)} connection (optional) — e.g. HQ, DC2, EMEA">
+      </label>
+      <span class="conn-actions-row"><button type="button" class="btn primary small" data-act="addconn-create">Create</button><button type="button" class="btn ghost small" data-act="addconn-cancel">Cancel</button></span>`;
+    foot.appendChild(form);
+    form.querySelector('[data-addlabel]')?.focus();
+  }
+
+  async function createConnection(c, el) {
+    const form = el.closest('[data-addform]');
+    const label = (form?.querySelector('[data-addlabel]')?.value || '').trim();
+    el.disabled = true;
+    try {
+      const res = await call(`${API}/${encodeURIComponent(c.connector_id)}/connections`, {
+        method: 'POST',
+        body: JSON.stringify({ label }),
+      });
+      await load(); // bring the new (empty, disabled) connection into the catalog
+      const newId = res.connection_id;
+      openWizard(newId, 2, 'new'); // straight to the connect form for the new connection
+      if (wiz) wiz.cleanupIfUnsaved = newId; // a cancel before saving removes the empty connection
+    } catch (err) {
+      el.disabled = false;
+      alert(`Could not add a connection: ${err.message}`);
     }
   }
 
@@ -299,11 +363,23 @@
     if (mode === 'retest') runTest();
   }
 
-  function closeWizard() {
+  async function closeWizard() {
+    const pending = wiz?.cleanupIfUnsaved;
     const layer = document.querySelector('#connWizard');
     layer?.classList.add('hidden');
     document.body.classList.remove('connwiz-open');
     wiz = null;
+    // If a freshly added extra connection was never saved, remove the empty row so it doesn't linger.
+    if (pending) {
+      const r = row(pending);
+      if (r && !r.configured && r.is_first_connection === false) {
+        try {
+          await call(`${API}/${encodeURIComponent(pending)}`, { method: 'DELETE' });
+        } catch {}
+        await load();
+        return;
+      }
+    }
     render();
   }
 
@@ -657,7 +733,7 @@
     const mine = wiz;
     let report;
     try {
-      report = await call(`${API}/${encodeURIComponent(c.connector_id)}/test`, {
+      report = await call(`${API}/${encodeURIComponent(cid(c))}/test`, {
         method: 'POST',
         body: JSON.stringify(body),
       });
@@ -676,7 +752,8 @@
 
   async function save() {
     const c = row(wiz.id);
-    const res = await call(`${API}/${encodeURIComponent(c.connector_id)}`, {
+    if (wiz) wiz.cleanupIfUnsaved = null; // it is about to be saved — keep it even if the wizard is closed
+    const res = await call(`${API}/${encodeURIComponent(cid(c))}`, {
       method: 'POST',
       // v0.10.23: editing a connection keeps its On/Off state (it used to switch it on silently).
       body: JSON.stringify({

@@ -43,6 +43,15 @@ verified". Decide the stance:
 - [ ] Accept the "names not verified" notice, or
 - [ ] Each PC keeps its own local triage (no sharing) for the pilot.
 
+## Platforms in the pilot
+
+- **Windows** 10/11 (x64) — the primary pilot platform.
+- **macOS** on **Apple silicon only (M1 / M2 / M3)**, macOS 11+. The bundled Python runtime is arm64-only.
+  **Intel Macs are out of scope** for the pilot. (The shipped launcher is a universal binary, so it will start on
+  an Intel Mac, but no x86_64 runtime is bundled, so the backend will not run there.) Adding Intel support later
+  would mean bundling an x86_64 runtime and a universal compiled module — a build change tracked separately, not
+  part of this pilot.
+
 ## Definition of done (from the report) — confirm before go-live
 
 - [ ] Both review-report Mediums closed; Lows swept. (Done in the build; confirm on the pilot build.)

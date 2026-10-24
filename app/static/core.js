@@ -1,5 +1,5 @@
-const FRONTEND_VERSION = '0.10.58';
-const FRONTEND_BUILD = '0.10.58-source';
+const FRONTEND_VERSION = '0.10.59';
+const FRONTEND_BUILD = '0.10.59-source';
 window.MistTools = window.MistTools || {};
 
 const NODEWATCH_WRITE_TOKEN = document.querySelector('meta[name="nodewatch-write-token"]')?.content || '';
