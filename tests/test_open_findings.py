@@ -26,6 +26,9 @@ def _src(rel: str) -> str:
     path = APP / rel
     if COMPILED and not path.exists():
         raise unittest.SkipTest(f"compiled build: {rel} is checked on the source tree")
+    # Release builds minify the page scripts, so their source shape is only checked on the source tree.
+    if COMPILED and rel.startswith("static/") and rel.endswith(".js"):
+        raise unittest.SkipTest(f"release build: {rel} is minified; checked on the source tree")
     return path.read_text(encoding="utf-8")
 
 
@@ -259,11 +262,13 @@ class Cleanup(unittest.TestCase):
         lifespan = _src("main.py").split("async def lifespan", 1)[1].split("\napp = ", 1)[0]
         self.assertRegex(lifespan, r"soc|collector")
 
+    @needs_source  # release builds minify the page scripts; this checks their source shape
     def test_one_html_escape_helper(self):
         """Fixed in v0.10.44: pages alias core.js's nwEscapeHtml; only one escaping table exists."""
         copies = [p.name for p in (APP / "static").rglob("*.js") if "'&': '&amp;'" in p.read_text("utf-8", "replace")]
         self.assertEqual(copies, ["core.js"])
 
+    @needs_source  # release builds minify the page scripts; this checks their source shape
     def test_one_fetch_helper(self):
         """Fixed in v0.10.44: pages call core.js's nwFetchJSON instead of their own fetch-and-parse copies."""
         own = [p.name for p in (APP / "static").rglob("*.js")

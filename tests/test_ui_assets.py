@@ -52,8 +52,9 @@ class PageMatchesBackend(unittest.TestCase):
         from app.core.version import APP_BUILD, APP_VERSION
 
         js = (app_dir() / "static" / "core.js").read_text("utf-8")
-        self.assertEqual(re.search(r"const FRONTEND_VERSION = '([^']+)'", js).group(1), APP_VERSION)
-        self.assertEqual(re.search(r"const FRONTEND_BUILD = '([^']+)'", js).group(1), APP_BUILD)
+        # Quote- and spacing-tolerant so it still matches after the release build minifies core.js.
+        self.assertEqual(re.search(r"""FRONTEND_VERSION\s*=\s*['"]([^'"]+)['"]""", js).group(1), APP_VERSION)
+        self.assertEqual(re.search(r"""FRONTEND_BUILD\s*=\s*['"]([^'"]+)['"]""", js).group(1), APP_BUILD)
 
     def test_manifest_build_equals_backend_build(self):
         import json

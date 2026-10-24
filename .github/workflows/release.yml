@@ -93,11 +93,14 @@ jobs:
               --file-version "$v.0" --product-version "$v.0" --file-description "$desc" --product-name "NodeWatch" \
               --copyright "BWN" --original-filename "NodeWatch.exe" --out rsrc)
           done
+      - name: Install terser (page-script minifier)
+        run: npm install -g terser@5.36.0
       - name: Build the installer (from source, with the compiled app)
         run: |
           mkdir -p dist
           python3 tools/build_release.py windows-installer --installer shipped/v0.10.42/NodeWatch-windows-installer.exe \
             --out dist/NodeWatch.exe --build ${{ needs.build-id.outputs.id }} --compiled compiled | tee build.txt
+          grep -q "page scripts minified" build.txt || { echo "::error::page scripts were not minified"; exit 1; }
           echo "::notice title=windows build::$(grep -v '^changed\|^added\|^removed  app' build.txt | sed ':a;N;$!ba;s/\n/%0A/g' | head -c 3000)"
       - name: Build the signing tool (NodeWatch-Sign)
         run: (cd release/signing-tool && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../../NodeWatch-Sign.exe .)
@@ -220,10 +223,13 @@ jobs:
         with:
           name: compiled-macOS
           path: compiled
+      - name: Install terser (page-script minifier)
+        run: npm install -g terser@5.36.0
       - name: Build the app (with the compiled app)
         run: |
           ditto -x -k shipped/v0.10.42/NodeWatch-macos.zip "$RUNNER_TEMP/build"
-          python3 tools/build_release.py macos --app "$RUNNER_TEMP/build/NodeWatch.app" --build ${{ needs.build-id.outputs.id }} --compiled compiled
+          python3 tools/build_release.py macos --app "$RUNNER_TEMP/build/NodeWatch.app" --build ${{ needs.build-id.outputs.id }} --compiled compiled | tee build.txt
+          grep -q "page scripts minified" build.txt || { echo "::error::page scripts were not minified"; exit 1; }
           codesign --force --deep --sign - "$RUNNER_TEMP/build/NodeWatch.app"
           codesign --verify --deep --strict --verbose=2 "$RUNNER_TEMP/build/NodeWatch.app"
           mkdir -p dist

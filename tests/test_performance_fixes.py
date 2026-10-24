@@ -11,6 +11,7 @@ import unittest
 from unittest import mock
 
 import tests.support  # noqa: F401
+from tests.support import needs_source
 
 
 def _client():
@@ -127,6 +128,7 @@ class SocDatasetLru(unittest.TestCase):
             self.assertGreater(service._CACHE_MAX, 1)
 
 
+@needs_source  # reads detective_service.py source; the compiled build has it inside app.<suffix>
 class DetectivePrefixOnly(unittest.TestCase):
     """Report perf #8: the detective text search runs the prefix form only (four Mist calls, not eight)."""
 

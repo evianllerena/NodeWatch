@@ -107,6 +107,65 @@ def load_compiled(folder: Path | None, build: str) -> dict[str, bytes] | None:
     return files
 
 
+# Phase 2 (brief): the page scripts ship minified, with comments stripped. terser is the standard, semantics-
+# preserving JS minifier; it is run WITHOUT --toplevel and without --mangle-props, so the global names the scripts
+# share across files (for example nwEscapeHtml in core.js) are kept, and only each file's local variables are
+# shortened. Every minified file is parse-checked with `node --check`. If terser or node is not available the
+# scripts are shipped unchanged (set NODEWATCH_NO_MINIFY=1 to force that), so a build never breaks over minifying.
+def _terser_cmd() -> list[str] | None:
+    import shutil
+
+    if os.environ.get("NODEWATCH_NO_MINIFY") == "1" or shutil.which("node") is None:
+        return None
+
+    def works(cmd: list[str]) -> bool:
+        try:
+            return subprocess.run([*cmd, "--version"], capture_output=True, timeout=60).returncode == 0
+        except Exception:  # noqa: BLE001 - any failure means terser is not usable here; ship the scripts as-is
+            return False
+
+    for cmd in (["terser"], ["npx", "--no-install", "terser"]):
+        if (cmd[0] == "terser" and shutil.which("terser")) or (cmd[0] == "npx" and shutil.which("npx")):
+            if works(cmd):
+                return cmd
+    return None
+
+
+def minify_static_js(new: dict[str, bytes], report: list[str]) -> None:
+    cmd = _terser_cmd()
+    js_files = sorted(r for r in new if r.startswith("app/static/") and r.endswith(".js"))
+    if cmd is None:
+        report.append(f"minify: skipped (terser/node not available); {len(js_files)} page scripts shipped as-is")
+        return
+    import shutil
+
+    saved = 0
+    with tempfile.TemporaryDirectory() as tmp:
+        tmpdir = Path(tmp)
+        for rel in js_files:
+            before = new[rel]
+            src = tmpdir / "in.js"
+            src.write_bytes(before)
+            run = subprocess.run(
+                [*cmd, str(src), "--compress", "--mangle", "--format", "comments=false"],
+                capture_output=True,
+            )
+            if run.returncode != 0 or not run.stdout.strip():
+                raise SystemExit(f"terser failed on {rel}: {run.stderr.decode('utf-8', 'replace')[:300]}")
+            out = run.stdout
+            out_file = tmpdir / "out.js"
+            out_file.write_bytes(out)
+            check = subprocess.run([cmd[0] if cmd[0] == "node" else "node", "--check", str(out_file)], capture_output=True)
+            if check.returncode != 0:
+                raise SystemExit(f"minified {rel} does not parse: {check.stderr.decode('utf-8', 'replace')[:300]}")
+            # core.js must still carry the stamped build id after minifying (it is a string literal, so it survives).
+            if rel == "app/static/core.js" and b"FRONTEND_BUILD" not in out:
+                raise SystemExit("minified core.js lost FRONTEND_BUILD")
+            saved += len(before) - len(out)
+            new[rel] = out
+    report.append(f"minify: {len(js_files)} page scripts minified with terser ({saved} bytes smaller)")
+
+
 def new_internal_files(current: dict[str, bytes], build: str, platform: str,
                        compiled: dict[str, bytes] | None = None) -> tuple[dict[str, bytes], list[str]]:
     """current: rel path under _internal -> bytes (shipped). Returns the new map and a change report."""
@@ -163,6 +222,7 @@ def new_internal_files(current: dict[str, bytes], build: str, platform: str,
     if not required <= set(stamped):
         raise SystemExit(f"build id not found where expected; stamped: {stamped}")
     report.append(f"build id {build} written to: {', '.join(stamped)}")
+    minify_static_js(new, report)  # Phase 2: strip comments and whitespace from the page scripts (after stamping)
     old_manifest = json.loads(current["integrity.json"])
     order = [r for r in old_manifest["files"] if r in new] + sorted(r for r in new if listed(r) and r not in old_manifest["files"])
     manifest = {"build": build, "files": {r: sha256(new[r]) for r in order if listed(r)}}
