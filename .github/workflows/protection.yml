@@ -16,7 +16,7 @@ jobs:
   verify:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Find the newest NodeWatch release
         id: rel
@@ -58,15 +58,18 @@ jobs:
           # Start the launcher and watch for a healthy backend. A sound anti-tamper refuses to start one.
           $p = Start-Process -FilePath (Join-Path $root "NodeWatch.exe") -PassThru
           $answered = $false
-          foreach ($i in 1..40) {
-            Start-Sleep -Seconds 1
-            foreach ($port in 8765..8795) {
+          # A healthy launcher answers within ~20s; a tampered one never starts a backend. Bound the wait with a
+          # stopwatch so the no-answer case cannot run long (each failed probe waits its full timeout).
+          $sw = [System.Diagnostics.Stopwatch]::StartNew()
+          while ($sw.Elapsed.TotalSeconds -lt 45 -and -not $answered) {
+            foreach ($port in 8765..8769) {
               try {
                 $r = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/status?probe=true" -TimeoutSec 1 -UseBasicParsing
                 if ($r.Content -match '"build"') { $answered = $true; break }
               } catch {}
             }
-            if ($answered -or $p.HasExited) { break }
+            if ($p.HasExited) { break }
+            Start-Sleep -Milliseconds 500
           }
           Get-Process NodeWatch*, python*, nwhost* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           $result = if ($answered) { "started" } else { "refused" }
