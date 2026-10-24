@@ -1991,6 +1991,11 @@ def catalog() -> list[dict[str, Any]]:
         rows.append(
             {
                 **c.manifest.public_dict(),
+                # Connection identity (v0.10.56, N1): connector_id is the vendor code; connection_id addresses one
+                # connection of it (equal to connector_id for the first one, so single-connection rows are unchanged).
+                "connection_id": c.connection_id,
+                "connection_label": c.connection_label,
+                "is_first_connection": c.is_first_connection,
                 "category_label": CATEGORY_LABELS.get(c.manifest.category, c.manifest.category),
                 "capability_labels": {cap: CAPABILITY_LABELS.get(cap, cap) for cap in c.manifest.capabilities},
                 "configured": configured,

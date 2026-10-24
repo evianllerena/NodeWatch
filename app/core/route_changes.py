@@ -51,6 +51,7 @@ ROUTE_CHANGES: dict[str, str] = {
     "POST /api/v1/config-backup/snapshots/delete": "nodewatch",
     "POST /api/v1/config-backup/snapshots/pin": "nodewatch",
     "POST /api/v1/connectors/{connector_id}": "nodewatch",
+    "POST /api/v1/connectors/{connector_id}/connections": "nodewatch",
     "POST /api/v1/connectors/{connector_id}/enabled": "nodewatch",
     "POST /api/v1/security/soc/cases/{case_id}": "nodewatch",
     "POST /api/v1/siem/forwarder": "nodewatch",

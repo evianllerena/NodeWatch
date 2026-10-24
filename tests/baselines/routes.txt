@@ -109,6 +109,7 @@ POST /api/v1/config-backup/snapshot
 POST /api/v1/config-backup/snapshots/delete
 POST /api/v1/config-backup/snapshots/pin
 POST /api/v1/connectors/{connector_id}
+POST /api/v1/connectors/{connector_id}/connections
 POST /api/v1/connectors/{connector_id}/enabled
 POST /api/v1/connectors/{connector_id}/test
 POST /api/v1/operations/execute

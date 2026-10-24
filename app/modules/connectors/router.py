@@ -29,7 +29,9 @@ router = APIRouter(prefix="/api/v1/connectors", tags=["connectors"])
 
 
 def _row(connector_id: str) -> dict[str, Any]:
-    return next((r for r in sdk.catalog() if r["connector_id"] == connector_id), {})
+    # ``connector_id`` here is a connection id: the base connector id for the first connection, or e.g.
+    # "fortigate-2" for a further one. Match on connection identity, falling back to the base id.
+    return next((r for r in sdk.catalog() if r.get("connection_id", r["connector_id"]) == connector_id), {})
 
 
 def _connector(connector_id: str) -> sdk.Connector:
@@ -168,12 +170,34 @@ def set_enabled(connector_id: str, payload: dict = Body(default_factory=dict)) -
     return {"ok": True, "connector": _row(connector_id)}
 
 
-@router.delete("/{connector_id}")
-def reset_connector(connector_id: str) -> dict[str, Any]:
-    _connector(connector_id)
+@router.post("/{connector_id}/connections")
+def add_connection(connector_id: str, payload: dict = Body(default_factory=dict)) -> dict[str, Any]:
+    """Add another (empty, disabled) connection of a connector, for a customer with more than one org/firewall/VDOM
+    of the same vendor. Fill it in with POST /{connection_id} like the first one. (v0.10.56, N1.)"""
+    connector = _connector(connector_id)
+    label = str(payload.get("label") or "")
     try:
-        sdk.remove_connector_settings(connector_id)
+        connection = sdk.add_connection(connector.manifest.connector_id, label)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
-    record_integration_event(provider=connector_id, operation="CONNECTOR_SETTINGS_RESET", ok=True)
+    record_integration_event(
+        provider=connector.manifest.connector_id, operation="CONNECTOR_CONNECTION_ADDED", ok=True,
+        metadata={"connection_id": connection.connection_id},
+    )
+    return {"ok": True, "connection_id": connection.connection_id, "connector": _row(connection.connection_id)}
+
+
+@router.delete("/{connector_id}")
+def reset_connector(connector_id: str) -> dict[str, Any]:
+    connector = _connector(connector_id)
+    try:
+        if connector.is_first_connection:
+            sdk.remove_connector_settings(connector_id)  # the connector stays; its saved settings are cleared
+            op = "CONNECTOR_SETTINGS_RESET"
+        else:
+            sdk.remove_connection(connector_id)  # an extra connection is removed entirely
+            op = "CONNECTOR_CONNECTION_REMOVED"
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    record_integration_event(provider=connector.manifest.connector_id, operation=op, ok=True)
     return {"ok": True, "connector": _row(connector_id)}
