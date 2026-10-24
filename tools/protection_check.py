@@ -120,8 +120,9 @@ def check(internal: Path, tamper_result: str | None) -> tuple[list[tuple[str, bo
     ]
     for name, ok, detail in results:
         lines.append(f"| {name} | {'PASS' if ok else 'FAIL'} | {detail} |")
-    lines += ["", "Deferred to the pentest / a security specialist: a decompile-and-LLM read of one compiled module,",
-              "and making a lifted-out compiled module refuse to run on its own."]
+    lines += ["", "Anti-lift: the compiled module refuses to run when copied out of its install (app/__init__.py).",
+              "Decompile resistance is evidenced by the workflow (native extension; bytecode decompilers reject it).",
+              "Left to the pentest: an adversarial decompile-and-LLM read of a compiled module by a human expert."]
     return results, "\n".join(lines) + "\n"
 
 

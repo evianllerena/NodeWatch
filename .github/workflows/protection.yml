@@ -45,6 +45,24 @@ jobs:
         run: |
           python tools/extract_windows_payload.py dl\NodeWatch.exe "${{ runner.temp }}\static"
           python tools/protection_check.py --internal "${{ runner.temp }}\static\NodeWatch\_internal" --report protection.md
+      - name: Decompile-resistance evidence
+        shell: pwsh
+        run: |
+          $mod = (Get-ChildItem "${{ runner.temp }}\static\NodeWatch\_internal\app.*" -Include *.pyd,*.so).FullName
+          "Module: $mod" | Tee-Object evidence.txt
+          # A compiled extension is native code, not Python .pyc bytecode: its first bytes are the PE header
+          # 'MZ', not a .pyc magic, so bytecode decompilers (uncompyle6/decompyle3/pycdc) do not apply to it.
+          $head = [System.IO.File]::ReadAllBytes($mod)[0..3]
+          "First bytes: $([System.Text.Encoding]::ASCII.GetString($head[0..1])) / $(($head|ForEach-Object {$_.ToString('x2')}) -join ' ')" | Tee-Object evidence.txt -Append
+          pip install --quiet decompyle3 2>&1 | Out-Null
+          $out = python -c "import decompyle3,io,sys`ntry:`n decompyle3.main.decompile_file(sys.argv[1], io.StringIO())`n print('DECOMPILED (unexpected)')`nexcept Exception as e:`n print('bytecode decompiler rejected it:', type(e).__name__, str(e)[:160])" $mod 2>&1 | Out-String
+          $out | Tee-Object evidence.txt -Append
+          if ($out -match "DECOMPILED \(unexpected\)") { throw "a bytecode decompiler read the compiled module" }
+          Write-Output "::notice title=decompile evidence::$((Get-Content evidence.txt -Raw) -replace "`r",'' -replace "`n",'%0A')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: decompile-evidence
+          path: evidence.txt
       - name: Changing a listed file makes the launcher refuse to start
         id: tamper
         shell: pwsh
