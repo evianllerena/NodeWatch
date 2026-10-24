@@ -1,0 +1,86 @@
+name: protection
+
+# Phase 3 protection verification, run on the real published download (no recompile): after every release, and on
+# demand. It checks the compiled app ships no readable source, that a changed file makes the launcher refuse to
+# start, and writes a one-page protection report (tools/protection_check.py).
+on:
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Find the newest NodeWatch release
+        id: rel
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list --repo "${{ github.repository }}" --limit 30 --json tagName,isPrerelease \
+                 -q '[.[]|select(.tagName|startswith("v0."))][0].tagName')
+          [ -n "$tag" ] || { echo "::error::no NodeWatch release found"; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=${tag##*-}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.rel.outputs.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download the release's Windows installer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "${{ steps.rel.outputs.tag }}" --repo "${{ github.repository }}" --pattern NodeWatch.exe --dir dl
+      - name: Extract the payload and run the static protection checks
+        shell: pwsh
+        run: |
+          python tools/extract_windows_payload.py dl\NodeWatch.exe "${{ runner.temp }}\static"
+          python tools/protection_check.py --internal "${{ runner.temp }}\static\NodeWatch\_internal" --report protection.md
+      - name: Changing a listed file makes the launcher refuse to start
+        id: tamper
+        shell: pwsh
+        run: |
+          python tools/extract_windows_payload.py dl\NodeWatch.exe "${{ runner.temp }}\tamper"
+          $root = "${{ runner.temp }}\tamper\NodeWatch"
+          $internal = Join-Path $root "_internal"
+          # Change one byte of a file the manifest lists (core.js) so its hash no longer matches.
+          $target = Join-Path $internal "app\static\core.js"
+          Add-Content -LiteralPath $target -Value "/* tampered */" -NoNewline
+          # Start the launcher and watch for a healthy backend. A sound anti-tamper refuses to start one.
+          $p = Start-Process -FilePath (Join-Path $root "NodeWatch.exe") -PassThru
+          $answered = $false
+          foreach ($i in 1..40) {
+            Start-Sleep -Seconds 1
+            foreach ($port in 8765..8795) {
+              try {
+                $r = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/status?probe=true" -TimeoutSec 1 -UseBasicParsing
+                if ($r.Content -match '"build"') { $answered = $true; break }
+              } catch {}
+            }
+            if ($answered -or $p.HasExited) { break }
+          }
+          Get-Process NodeWatch*, python*, nwhost* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          $result = if ($answered) { "started" } else { "refused" }
+          Write-Output "::notice title=tamper test::launcher $result (exited=$($p.HasExited))"
+          "result=$result" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          if ($answered) { throw "a tampered install still started the backend" }
+      - name: Protection report
+        shell: pwsh
+        run: |
+          python tools/protection_check.py --internal "${{ runner.temp }}\static\NodeWatch\_internal" `
+            --tamper-result ${{ steps.tamper.outputs.result }} --report protection.md
+          $t = (Get-Content protection.md -Raw) -replace '%','%25' -replace "`r",'' -replace "`n",'%0A'
+          Write-Output "::notice title=protection report::$($t.Substring(0, [Math]::Min(3800, $t.Length)))"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: protection-report
+          path: protection.md
